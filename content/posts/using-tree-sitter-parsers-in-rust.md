@@ -1,29 +1,30 @@
 ---
-title: "Using Tree Sitter Parsers in Rust"
+title: "Using Tree-sitter Parsers in Rust"
 date: 2019-08-07T11:20:33-07:00
 draft: true
 ---
 
-[Tree Sitter] is a parser generator tool and parsing library.
-It generates portable parsers and provides bindings for several languages including Rust.
-Tree Sitter grammars are available for several languages.
+[Tree-sitter] is a parser generator tool and parsing library.
+It generates portable parsers that can be used in several languages including Rust.
+Tree-sitter grammars are available for several languages.
 
 This is a game changer because it lowers the barrier to entry for writing language tooling.
-You no longer need to write your own parser to implement language tooling.
-With Tree Sitter, you can now simply use an existing parser.
+You no longer need to write your own parser.
+With Tree-sitter, you can now simply use an existing parser.
 
-[Tree Sitter]: https://tree-sitter.github.io/tree-sitter
+[Tree-sitter]: https://tree-sitter.github.io/tree-sitter
 
 ## Overview
 
-Tree Sitter grammars are written in Javascript.
-Node is used to execute the grammar Javascript to generate the grammar JSON.
-The Tree Sitter CLI is used to generate a parser implemented in C from the grammar JSON.
-The parser is compiled into a Rust binary and accessed via the Tree Sitter Rust bindings.
+Tree-sitter grammars are written in Javascript.
+The grammars are executed using Node to generate the grammar JSON.
+The Tree-sitter CLI uses the grammar JSON to generate a C-based parser.
+The parser is compiled into a Rust binary and accessed via the Rust Tree-sitter bindings.
 
 ## Install the Dependencies
 
-Tree Sitter grammars are written in Javascript and require Node to generate the grammar JSON.
+Node is required to generate the grammar JSON.
+Install node:
 
 ```sh
 sudo apt-get install nodejs
@@ -49,10 +50,10 @@ tree-sitter = "0.3" # <1>
 cc = "1.0" # <2>
 ```
 
-1. The Tree Sitter Rust bindings.
+1. The Tree-sitter Rust bindings.
 2. Library for compiling C code into a Rust binary.
 
-A Cargo build script is needed to build and link the parser into our Rust binary.
+A [Cargo build script] is needed to build and link the parser into the Rust binary.
 Create a `build.rs` build script with the contents:
 
 ```rust
@@ -74,9 +75,11 @@ fn main() {
 1. Tells Cargo to only re-run the build script if the parser source has changed.
 2. Compiles the parser C code into the Rust binary.
 
+[Cargo build script]: https://doc.rust-lang.org/cargo/reference/build-scripts.html
+
 ## Obtain the Grammar
 
-A list of existing Tree Sitter grammars is available at https://tree-sitter.github.io/tree-sitter.
+A list of existing Tree-sitter grammars is available at https://tree-sitter.github.io/tree-sitter.
 
 I'll be using the Verilog grammar.
 Obtain the grammar:
@@ -86,16 +89,17 @@ git submodule add https://github.com/tree-sitter/tree-sitter-verilog.git
 git commit -m "Add tree-sitter-verilog"
 ```
 
-Generate the parser:
+## Generate the Parser
 
 ```sh
 cd tree-sitter-verilog
 npm install
 ```
 
-This installs the necessary dependencies (e.g the Tree Sitter CLI) and generates the C-based Verilog parser in the `tree-sitter-verilog/src/` directory.
+This installs the Tree-sitter CLI and runs `tree-sitter generate` which executes the grammar Javascript to generate the grammar JSON then generates the C-based parser.
+The parser is written to the `tree-sitter-verilog/src/` directory.
 
-## Use the Grammar
+## Use the Parser
 
 Edit the contents of `src/main.rs` to be the following:
 
@@ -139,5 +143,5 @@ Finally commit the necessary files:
 
 ```sh
 git add -f Cargo.lock Cargo.toml build.rs src/main.rs tree-sitter-verilog/src/parser.c tree-sitter-verilog/src/tree_sitter/parser.h
-git commit -m "Add Tree Sitter parser"
+git commit -m "Add Tree-sitter parser"
 ```
