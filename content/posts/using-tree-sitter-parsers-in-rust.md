@@ -67,7 +67,7 @@ The parser is written to the `tree-sitter-verilog/src/` directory.
 
 A [Cargo build script] is needed to compile and link the parser into the Rust binary.
 
-But first, we need the [cc crate] for compiling C code into our Rust binary.
+We need the [cc crate] for compiling C code into our Rust binary.
 Add the `cc` crate to the `build-dependencies` section of `Cargo.toml`:
 
 ```toml
@@ -75,7 +75,7 @@ Add the `cc` crate to the `build-dependencies` section of `Cargo.toml`:
 cc = "1.0"
 ```
 
-Next, create a `build.rs` build script with the contents:
+Create a `build.rs` build script with the contents:
 
 ```rust
 fn main() {
