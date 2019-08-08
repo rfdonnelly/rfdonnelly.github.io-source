@@ -2,3 +2,6 @@ baseURL = "https://rfdonnelly.github.io/"
 languageCode = "en-us"
 title = "Rob Donnelly"
 theme = "temple"
+pygmentsCodefences = true
+pygmentsUseClasses = true
+
