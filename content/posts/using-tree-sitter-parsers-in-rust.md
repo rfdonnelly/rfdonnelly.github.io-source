@@ -1,7 +1,6 @@
 ---
 title: "Using Tree-sitter Parsers in Rust"
 date: 2019-08-07T11:20:33-07:00
-draft: true
 ---
 
 [Tree-sitter] is a parser generator tool and parsing library.
