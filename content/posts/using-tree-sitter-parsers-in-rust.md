@@ -14,12 +14,12 @@ With Tree-sitter, you can now simply use an existing parser.
 
 [Tree-sitter]: https://tree-sitter.github.io/tree-sitter
 
-## Overview
+## Toolchain
 
 Tree-sitter grammars are written in Javascript.
 The grammars are executed using Node to generate the grammar JSON.
 The Tree-sitter CLI uses the grammar JSON to generate a C-based parser.
-The parser is compiled into a Rust binary and accessed via the Rust Tree-sitter bindings.
+The parser is compiled into a Rust binary and used via the Rust Tree-sitter bindings.
 
 ## Install the Dependencies
 
@@ -30,6 +30,8 @@ Install node:
 sudo apt-get install nodejs
 ```
 
+NOTE: This article assumes you have Rust and a C compiler installed.
+
 ## Create a New Rust Project
 
 ```sh
@@ -39,43 +41,6 @@ git init
 git add .
 git commit -m "Initial commit"
 ```
-
-Add the following dependencies to `Cargo.toml`:
-
-```toml
-[dependencies]
-tree-sitter = "0.3" # <1>
-
-[build-dependencies]
-cc = "1.0" # <2>
-```
-
-1. The Tree-sitter Rust bindings.
-2. Library for compiling C code into a Rust binary.
-
-A [Cargo build script] is needed to build and link the parser into the Rust binary.
-Create a `build.rs` build script with the contents:
-
-```rust
-fn main() {
-    let language = "verilog";
-    let package = format!("tree-sitter-{}", language);
-    let source_directory = format!("{}/src", package);
-    let source_file = format!("{}/parser.c", source_directory);
-
-    println!("rerun-if-changed={}", source_file); // <1>
-
-    cc::Build::new()
-        .file(source_file)
-        .include(source_directory)
-        .compile(&package); // <2>
-}
-```
-
-1. Tells Cargo to only re-run the build script if the parser source has changed.
-2. Compiles the parser C code into the Rust binary.
-
-[Cargo build script]: https://doc.rust-lang.org/cargo/reference/build-scripts.html
 
 ## Obtain the Grammar
 
@@ -99,7 +64,53 @@ npm install
 This installs the Tree-sitter CLI and runs `tree-sitter generate` which executes the grammar Javascript to generate the grammar JSON then generates the C-based parser.
 The parser is written to the `tree-sitter-verilog/src/` directory.
 
+## Compile the Parser
+
+A [Cargo build script] is needed to compile and link the parser into the Rust binary.
+
+But first, we need the [cc crate] for compiling C code into our Rust binary.
+Add the `cc` crate to the `build-dependencies` section of `Cargo.toml`:
+
+```toml
+[build-dependencies]
+cc = "1.0"
+```
+
+Next, create a `build.rs` build script with the contents:
+
+```rust
+fn main() {
+    let language = "verilog";
+    let package = format!("tree-sitter-{}", language);
+    let source_directory = format!("{}/src", package);
+    let source_file = format!("{}/parser.c", source_directory);
+
+    println!("rerun-if-changed={}", source_file); // <1>
+
+    cc::Build::new()
+        .file(source_file)
+        .include(source_directory)
+        .compile(&package); // <2>
+}
+```
+
+1. Tells Cargo to only re-run the build script if the parser source has changed.
+2. Compiles the parser C code into the Rust binary.
+
+NOTE: We could instead rerun on a change in the grammar Javascript and add a call to `npm install` to fully automate the building of the parser.
+
+[Cargo build script]: https://doc.rust-lang.org/cargo/reference/build-scripts.html
+[cc crate]: https://crates.io/crates/cc
+
 ## Use the Parser
+
+We'll be using the parser via the Rust Tree-sitter bindings provided by the [tree-sitter crate].
+Add the `tree-sitter` crate to the `dependencies` section of `Cargo.toml`:
+
+```toml
+[dependencies]
+tree-sitter = "0.3"
+```
 
 Edit the contents of `src/main.rs` to be the following:
 
@@ -142,6 +153,8 @@ test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out
 Finally commit the necessary files:
 
 ```sh
-git add -f Cargo.lock Cargo.toml build.rs src/main.rs tree-sitter-verilog/src/parser.c tree-sitter-verilog/src/tree_sitter/parser.h
+git add -f Cargo.lock Cargo.toml build.rs src/main.rs
 git commit -m "Add Tree-sitter parser"
 ```
+
+[tree-sitter crate]: https://crates.io/crates/tree-sitter
