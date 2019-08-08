@@ -14,81 +14,19 @@ With Tree Sitter, you can now simply use an existing parser.
 
 [Tree Sitter]: https://tree-sitter.github.io/tree-sitter
 
-## Installing the Tree Sitter CLI
+## Overview
 
-The Tree Sitter CLI is required to generate a Tree Sitter parser from a Tree Sitter grammar.
+Tree Sitter grammars are written in Javascript.
+Node is used to execute the grammar Javascript to generate the grammar JSON.
+The Tree Sitter CLI is used to generate a parser implemented in C from the grammar JSON.
+The parser is compiled into a Rust binary and accessed via the Tree Sitter Rust bindings.
 
-Installing the Tree Sitter CLI is as simple as:
+## Install the Dependencies
 
-```sh
-cargo install tree-sitter-cli
-```
-
-
-However, this doesn't work until the fix for [tree-sitter/tree-sitter#352] makes it into a release.
-In the meantime, you'll need to clone and build the Tree Sitter repository.
-
-The Tree Sitter repository uses Git Submodules so the `--recursive` flag must be used.
-
-[tree-sitter/tree-sitter#352]: https://github.com/tree-sitter/tree-sitter/issues/352
+Tree Sitter grammars are written in Javascript and require Node to generate the grammar JSON.
 
 ```sh
-git clone https://github.com/tree-sitter/tree-sitter.git --recursive
-```
-
-If you don't use the recursive flag, you'll get the following error on cargo build:
-
-```text
-cargo:warning=src\././utf16.h:10:22: fatal error: utf8proc.h: No such file or directory
-```
-
-Install dependencies
-
-```sh
-sudo apt-get install emscripten
-```
-
-Build WASM
-
-```sh
-./script/build-wasm
-```
-
-This didn't work for me so I removed the WASM dependency with the following patch.
-
-```diff
-diff --git a/cli/src/web_ui.rs b/cli/src/web_ui.rs
-index 7ebced8..45a189a 100644
---- a/cli/src/web_ui.rs
-+++ b/cli/src/web_ui.rs
-@@ -11,9 +11,9 @@ const HTML: &'static str = include_str!("./web_ui.html");
- const PLAYGROUND_JS: &'static [u8] = include_bytes!("../../docs/assets/js/playground.js");
-
- #[cfg(unix)]
--const LIB_JS: &'static [u8] = include_bytes!("../../lib/binding_web/tree-sitter.js");
-+const LIB_JS: &'static [u8] = &[];
- #[cfg(unix)]
--const LIB_WASM: &'static [u8] = include_bytes!("../../lib/binding_web/tree-sitter.wasm");
-+const LIB_WASM: &'static [u8] = &[];
-
- #[cfg(windows)]
- const LIB_JS: &'static [u8] = &[];
-```
-
-Check the version:
-
-```text
-$ cargo run -- --version
-    Finished dev [unoptimized + debuginfo] target(s) in 0.09s
-     Running `target/debug/tree-sitter --version`
-tree-sitter 0.15.7 (8657054e4b3d3ef50b0edcdf34b7bfcfc62edbe8)
-```
-
-Now that we have successfully built the Tree Sitter CLI we can install it for future convenience.
-
-```sh
-cd cli
-cargo install --path .
+sudo apt-get install nodejs
 ```
 
 ## Create a New Rust Project
@@ -141,15 +79,21 @@ fn main() {
 A list of existing Tree Sitter grammars is available at https://tree-sitter.github.io/tree-sitter.
 
 I'll be using the Verilog grammar.
-Obtain the grammar and generate the parser as follows.
+Obtain the grammar:
 
 ```sh
-git clone https://github.com/tree-sitter/tree-sitter-verilog.git
-cd tree-sitter-verilog
-tree-sitter generate
+git submodule add https://github.com/tree-sitter/tree-sitter-verilog.git
+git commit -m "Add tree-sitter-verilog"
 ```
 
-This creates the `tree-sitter-verilog/src/` directory.
+Generate the parser:
+
+```sh
+cd tree-sitter-verilog
+npm install
+```
+
+This installs the necessary dependencies (e.g the Tree Sitter CLI) and generates the C-based Verilog parser in the `tree-sitter-verilog/src/` directory.
 
 ## Use the Grammar
 
