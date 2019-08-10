@@ -3,6 +3,8 @@ title: "Using Tree-sitter Parsers in Rust"
 date: 2019-08-07T11:20:33-07:00
 ---
 
+*Update: 2019-08-10: Fixed rerun directive in `build.rs`*
+
 [Tree-sitter] is a parser generator tool and parsing library.
 It generates portable parsers that can be used in several languages including Rust.
 Tree-sitter grammars are available for several languages.
@@ -84,7 +86,7 @@ fn main() {
     let source_directory = format!("{}/src", package);
     let source_file = format!("{}/parser.c", source_directory);
 
-    println!("rerun-if-changed={}", source_file); // <1>
+    println!("cargo:rerun-if-changed={}", source_file); // <1>
 
     cc::Build::new()
         .file(source_file)
