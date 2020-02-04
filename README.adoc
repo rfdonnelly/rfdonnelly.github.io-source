@@ -2,7 +2,7 @@
 
 == Requirements
 
-https://gohugo.io[Hugo] or Docker
+https://gohugo.io[Hugo]+link:https://asciidoctor.org[AsciiDoctor] or Docker
 
 == Clone
 
