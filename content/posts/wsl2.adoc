@@ -1,0 +1,181 @@
+---
+title: "WSL2"
+date: 2020-02-03T22:44:58Z
+draft: true
+---
+
+This documents the setup of WSL2 for local and remote development.
+Local development is supported by Docker.
+For remote development, WSL2 effectively acts as a bridge.
+Remote development is done via SSH with support for X11 forwarding and port forwarding.
+This allows X11 applications to be run on the remote host and display on the Windows desktop and it allows a webserver to be run on the remote host and accessed via a local Windows port.
+
+== Install WSL2
+
+. Install https://docs.microsoft.com/en-us/windows/wsl/wsl2-install[WSL2]
+
+. Install Ubuntu from the Microsoft Store
+
+. Convert to WSL2
++
+ wsl --set-version Ubuntu 2
+
+. Verify WSL version
++
+ wsl --list --verbose
+
+== Install Docker
+
+The following will make Docker available from WSL2.
+
+. Download the https://docs.docker.com/docker-for-windows/edge-release-notes[latest edge release]
+
+. Follow the https://docs.docker.com/docker-for-windows/wsl-tech-preview[Docker WSL2 instructions]
+
+== Install Windows Terminal
+
+NOTE: This covers v0.8.
+
+. Install Windows Terminal from the Microsoft Store
+
+. Open Windows Terminal
+
+. Edit Settings
++
+[source,json]
+.profile.json
+----
+// To view the default settings, hold "alt" while clicking on the "Settings" button.
+// For documentation on these settings, see: https://aka.ms/terminal-documentation
+
+{
+    "$schema": "https://aka.ms/terminal-profiles-schema",
+
+    "defaultProfile": "{2c4de342-38b7-51cf-b940-2309a097f518}",
+
+    // Simplify copying
+    "copyOnSelect": true,
+
+    // Removed the following characters from the default list to allow double clicking
+    // of paths to select and copy them: '/', '\', '.'
+    "wordDelimiters": " ()\"',:;<>~!@#$%^&*|+=[]{}~?\u2502",
+
+    "profiles": {
+	"defaults": {
+            // Make the cursor easier to find
+            "cursorShape": "emptyBox"
+        },
+        "list": [
+            {
+                // Make changes here to the powershell.exe profile
+                "guid": "{61c54bbd-c2c6-5271-96e7-009a87ff44bf}",
+                "name": "Windows PowerShell",
+                "commandline": "powershell.exe",
+                "hidden": false
+            },
+            {
+                // Make changes here to the cmd.exe profile
+                "guid": "{0caa0dad-35be-5f56-a8ff-afceeeaa6101}",
+                "name": "cmd",
+                "commandline": "cmd.exe",
+                "hidden": false
+            },
+            {
+                "guid": "{2c4de342-38b7-51cf-b940-2309a097f518}",
+                "hidden": false,
+                "name": "Ubuntu",
+                "source": "Windows.Terminal.Wsl",
+
+                // Fix the starting directory
+                "startingDirectory": "//wsl$/Ubuntu/home/<windows-username>"
+            },
+            {
+                "guid": "{b453ae62-4e3d-5e58-b989-0a998ec441b8}",
+                "hidden": false,
+                "name": "Azure Cloud Shell",
+                "source": "Windows.Terminal.Azure"
+            }
+        ]
+    },
+
+    // Add custom color schemes to this array
+    "schemes": [],
+
+    // Add any keybinding overrides to this array.
+    // To unbind a default keybinding, set the command to "unbound"
+    "keybindings": [
+        // Make paste work like Linux
+        { "command": "paste", "keys": [ "shift+insert" ] }
+    ]
+}
+----
+
+== Setup SSH X11 Forwarding
+
+. Install https://sourceforge.net/projects/vcxsrv[VcXsrc]
+
+. Run XLaunch
+.. Set display number to `0`
+.. Disable access control
+.. Save configuration
+.. Open saved configuration to run VcXsrc
+
+. Open WSL terminal
+
+. Configure `$DISPLAY` by adding the following to your `~/.bashrc`
++
+ export DISPLAY=$(cat /etc/resolv.conf | grep nameserver | awk '{print $2}'):0.0
++
+This sets the DISPLAY to the IP address of the Windows host.
+
+. Configure SSH
++
+[source]
+.~/.ssh/config
+----
+Host *
+    User <remote-username>
+    ForwardX11 yes
+    ForwardX11Trusted yes
+    ForwardAgent yes
+----
+
+. Test
+.. SSH
++
+ ssh remote-host
+.. Run an X11 application
++
+ xlogo
++
+It should display on your Windows desktop.
+
+== Setup SSH Port Forwarding
+
+TBD
+
+== Setup Pageant
+
+NOTE: This assumes you manage SSH keys using PuTTY pageant or compatible application.
+
+. Download https://github.com/BlackReloaded/wsl2-ssh-pageant[wsl2-ssh-pageant]
++
+ cd ~/.ssh/
+ curl -LO https://github.com/BlackReloaded/wsl2-ssh-pageant/releases/download/v1.0.0/wsl2-ssh-pageant.exe
+ chmod +x wsl2-ssh-pageant.exe
+
+. Install socat
++
+ sudo apt-get install socat
+
+. Add wsl2-ssh-pageant to your `~/.bashrc`
++
+[source,sh]
+----
+export SSH_AUTH_SOCK=$HOME/.ssh/agent.sock
+ss -a | grep -q $SSH_AUTH_SOCK
+if [ $? -ne 0 ]; then
+        rm -f $SSH_AUTH_SOCK
+        setsid nohup socat UNIX-LISTEN:$SSH_AUTH_SOCK,fork EXEC:$HOME/.ssh/wsl2-ssh-pageant.exe >/dev/null 2>&1 &
+fi
+----
