@@ -57,8 +57,8 @@ NOTE: This covers v0.8.
     "copyOnSelect": true,
 
     // Removed the following characters from the default list to allow double clicking
-    // of paths to select and copy them: '/', '\', '.'
-    "wordDelimiters": " ()\"',:;<>~!@#$%^&*|+=[]{}~?\u2502",
+    // of paths and URLs to select and copy them: '/', '\', '.', ':'
+    "wordDelimiters": " ()\"',;<>~!@#$%^&*|+=[]{}~?\u2502",
 
     "profiles": {
 	"defaults": {
