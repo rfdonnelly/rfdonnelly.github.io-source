@@ -8,7 +8,7 @@ https://gohugo.io[Hugo]+link:https://asciidoctor.org[AsciiDoctor] or Docker
 
 [source,sh]
 ----
-git clone git@github.com:rfdonnelly/rfdonnelly.github.io-source.git --recrusive
+git clone git@github.com:rfdonnelly/rfdonnelly.github.io-source.git --recursive
 ----
 
 == Create a New Post
