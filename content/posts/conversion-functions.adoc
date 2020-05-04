@@ -1,0 +1,94 @@
+---
+title: "Conversion Functions"
+date: 2020-05-04T06:34:05Z
+draft: true
+---
+
+A lot of programming is converting data from one form into another.
+This post contains some guidance I use when writing conversion code.
+
+When adding a conversion function to a type, there are two fundamental conversion function types: from and to.
+I implement conversions as a `from` conversion as a static function on the output type when I own the output type.
+
+[source,sv]
+----
+class output_type;
+    static function output_type from_input(input_type input);
+        ...
+    end function
+endclass
+...
+output_type output = output_type::from_input(...);
+----
+
+If I don't own the output type but I own the input type, I implement conversions as a `to` conversion on the input type.
+
+[source,sv]
+----
+class input_type;
+    function output_type to_output();
+    endfunction
+endclass
+...
+input_type input = ...;
+output_type = input.to_output();
+----
+
+If I don't own either the input type or the output type then there are some options.
+We could write a free function.
+
+[source,sv]
+----
+function automatic output_type convert_input_to_output(input_type input);
+    ....
+endfunction
+...
+output_type output = convert_input_to_output(input);
+----
+
+Or we could create a wrapper type that implements a `from` conversion for the input type and a `to` conversion for the output type.
+
+[source,sv]
+----
+class input_wrapper_type;
+    input_type input;
+
+    static function input_wrapper_type from_input(input_type input);
+        this.input = input;
+    endfunction
+
+    function output_type to_output();
+        ...
+    endfunction
+endclass
+...
+output_type output = input_wrapper_type::from_input(input).to_output();
+----
+
+== Case Study
+
+Addresses.
+
+[source,sv]
+----
+typedef pci_offset class;
+typedef sram_offset class;
+
+class pci_offset;
+    u32 value;
+
+    // 'to' function written in terms on the 'from' function
+    function to_sram_offset(memory_map map);
+        sram_offset::from_pci_offset(this, map);
+    endfunction
+endclass    
+
+class sram_offset;
+    u24 value;
+
+    static function sram_offset from_pci_offset(pci_offset from, memory_map map);
+        sram_offset to = new(map[from.value]);
+        return to;
+    endfunction
+endclass
+----
