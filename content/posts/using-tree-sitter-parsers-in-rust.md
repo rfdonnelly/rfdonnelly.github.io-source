@@ -1,6 +1,10 @@
 ---
 title: "Using Tree-sitter Parsers in Rust"
 date: 2019-08-07T11:20:33-07:00
+tags:
+- Software
+- Rust
+- Tree-sitter
 ---
 
 *Update: 2019-08-10: Fixed rerun directive in `build.rs`*
