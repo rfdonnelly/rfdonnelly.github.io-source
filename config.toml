@@ -6,9 +6,9 @@ pygmentsCodefences = true
 pygmentsUseClasses = true
 
 [params]
-dataformatpretty = "2006-01-02"
+  dateformatpretty = "2006-01-02"
 
 [author]
-name = "Rob Donnelly"
-github = "rfdonnelly"
-gaid = "UA-145317325-1"
+  name = "Rob Donnelly"
+  github = "rfdonnelly"
+  gaid = "UA-145317325-1"
