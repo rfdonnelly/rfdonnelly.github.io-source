@@ -1,7 +1,6 @@
 ---
-title: "Patagonia"
+title: "A Word on Patagonia"
 date: 2020-06-29T17:49:07Z
-draft: true
 ---
 
 = A Word on Patagonia
