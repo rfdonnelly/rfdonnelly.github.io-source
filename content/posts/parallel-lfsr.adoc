@@ -1,0 +1,134 @@
+---
+title: "Parallel CRC"
+date: 2020-06-16T20:45:23Z
+draft: true
+tags:
+- Ruby
+- Rust
+- Verilog
+- SystemVerilog
+- Verilator
+- cocotb
+- Python
+---
+
+= Parallel CRC
+
+Over my years in digital hardware design and verification I've worked with error detection and correction several times.
+Every time, I've copied implementations from specifications always curious how they were derived but never had the time or inclination to dive deeper.
+Implementations took on two forms, the sequential implementation using a LFSR or a combinational implementation.
+The sequential implementation was easy to understand because it is a direct translation of the generator polynomial.
+The combinational implmentation on the other hand looked like sorcery.
+
+On a recent project I implemented a CRC algorithm in software to verify a CRC hardware implementation.
+When I ran the same input data through the two implementations I got different answers.
+This sent me on a journey to learn more.
+
+On this jorney, the more I learned, the more questions I had and the deeper I went.
+This post in particular covers but one side quest of this journey: generate combinational CRC implementations.
+
+== Ideas
+
+I've been getting a lot of enjoyment out of writing Rust.
+As far as I'm concerned, Rust is the future.
+
+I thought wouldn't it be cool to implement a combinational CRC generator using Rust.
+It could generate synthesizable Verilog/SystemVerilog/VHDL implementations.
+And wouldn't it be cool if you didn't need to download anything?
+You could just open a website.
+This would be a perfect opportunity to try Rust + WASM.
+
+One problem with existing CRC hardware generators is that they don't come with tests.
+Wouldn't it be cool if the generated hardware also came with a test?
+
+One of the problems with Verilog/SystemVerilog/VHDL is the lack of opensource tooling.
+Wouldn't if be cool if the test could be run without an expensive simulator license?
+
+I've been feeling a push to learn Python lately.
+All the cool kids are using it and no one takes Ruby seriously.
+While Ruby is the language I love, Python is taking the market share.
+Wouldn't it be cool if I could learn some Python too?
+
+One of the things I really like about Rust is the strong type system.
+Wouldn't it be cool if we could have type checking in Python too?
+
+We'll take care of all of these and more.
+
+== Algorithm
+
+Every CRC implementation I've seen stems from the basic LFSR implementation.
+Several modifications can be made to increase performance but it all boils down to an LFSR.
+Even the combinational implementation is derived from the LFSR implementation.
+
+In order to derive the combinational implementation, one calculates the CRC using an LFSR symbolically instead of numerically.
+For example, instead of using 1's and 0's for the input data bits we use variables like d_0, d_1, etc. for the bits.
+Additionally, instead of using 1's and 0's for the state bits we use symbolic equations like s_0 = d_0 ^ d_5.
+Furthermore, we can use properties of exclusive or to simplify the equations.
+
+== Exclusive OR (XOR)
+
+Exclusive OR has some interesting properties.
+Exclusive OR is defined by the following truth table:
+
+We can extract several properties of exclusive OR from the truth table.
+
+. a ^ a = 0
+. a ^ 0 = a
+. a ^ 1 = ~a
+
+Properties 2 and 3 can be combined to create a toggleable inverter.
+If the invert bit is 1, the output will be the inversion of the input.
+If the invert bit is 0, the output will be the same as the output.
+
+a ^ invert
+
+Thinking about exclusive OR this way has helped me arrive at simpler solutions that I would have otherwise.
+
+== Implementing the Algorithm
+
+I decided to implement the combinational CRC algorithm in Ruby first.
+I feel I can more quickly iterate and try different things in Ruby than in Rust.
+I'll use Ruby to experiment then use Rust to polish.
+
+=== Initial
+
+=== Abstraction
+
+Use objects to represent the terms.
+
+=== Performance #1
+
+Use integers and encode the term type in bit 31.
+
+=== Performance
+
+Reduce clones.
+
+=== Performance #2
+
+Use properties of XOR.
+
+== Implementing in Rust
+
+=== Benefit
+
+Abstraction w/o penalty using enums.
+
+=== Drawback
+
+Cannot manually shift arrays.
+
+== Rust CLI
+
+== Rust WASM
+
+* No bundler
++
+Did not want the npm development dependency.
+
+* Browser support
++
+Safari does not support BigInt/u64.
+Could represent polynomial as an array of bool but polynomials > 64 bits are not common and aren't even included in the CRC Polynomial Zoo.
+
+== SystemVerilog
