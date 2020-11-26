@@ -149,6 +149,7 @@ Host *
 .. SSH
 +
  ssh remote-host
+
 .. Run an X11 application
 +
  xlogo
