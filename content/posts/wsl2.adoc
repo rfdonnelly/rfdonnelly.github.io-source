@@ -7,7 +7,8 @@ date: 2020-02-03T22:44:58Z
 :idseparator: -
 
 NOTE: 2020-11-25 -- Added <<ssh-into-wsl2>>.
-NOTE: 2020-11-27 -- Changed Docker from edge to stable.
+
+NOTE: 2020-11-27 -- Changed Docker from edge to stable.  Simplified Windows Terminal settings.
 
 This article documents the setup of WSL2 for local and remote development.
 Local development is supported by Docker.
