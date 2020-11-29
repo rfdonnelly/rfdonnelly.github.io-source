@@ -10,6 +10,8 @@ NOTE: 2020-11-25 -- Added <<ssh-into-wsl2>>.
 
 NOTE: 2020-11-27 -- Changed Docker from edge to stable.  Simplified Windows Terminal settings.
 
+NOTE: 2020-11-29 -- Added workaround for older Docker images.
+
 This article documents the setup of WSL2 for local and remote development.
 Local development is supported by Docker.
 For remote development, WSL2 effectively acts as a bridge.
@@ -37,6 +39,17 @@ The following will make Docker available from WSL2.
 . Download the https://docs.docker.com/docker-for-windows/release-notes/[latest stable release]
 
 . Follow the https://docs.docker.com/docker-for-windows/wsl/[Docker WSL2 instructions]
+
+[NOTE]
+====
+To run older Docker base images https://github.com/microsoft/WSL/issues/4694[a workaround may be needed].
+
+[source]
+.Create `%userprofile%\.wslconfig` with the following content
+----
+kernelCommandLine = vsyscall=emulate
+----
+====
 
 == Install Windows Terminal
 
