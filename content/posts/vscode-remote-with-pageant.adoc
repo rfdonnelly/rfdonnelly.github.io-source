@@ -1,0 +1,38 @@
+---
+title: "VS Code Remote with Pageant"
+date: 2020-12-01T22:31:27Z
+draft: true
+---
+
+This post documents using VS Code Remote with Pageant.
+
+You store your SSH keys in Pageant then instruct VS Code Remote to use them.
+
+VS Code Remote (October 2020 version 1.51.1) doesn't support Pageant out of the box.
+More specifically, VS Code Remote uses the Windows 10 native OpenSSH client and the OpenSSH client doesn't support Pageant.
+A bridge is needed to make Pageant available to the OpenSSH client.
+
+This is where wsl-ssh-pageant comes in.
+wsl-ssh-pageant can make Pageant available to WSL or Windows OpenSSH client.
+We are going to use it to make Pageant available to Windows OpenSSH client.
+
+== Instructions
+
+. Download `wsl-ssh-pageant-amd64-gui.exe` from the https://github.com/benpye/wsl-ssh-pageant/releases[latest release] of `wsl-ssh-pageant`
+
+. Create a `.bat` file with the following content
++
+[source,bat]
+----
+@ECHO OFF
+SETX SSH_AUTH_SOCK \\.\pipe\ssh-pageant
+START /B "" "C:\SSH\wsl-ssh-pageant-amd64-gui.exe" --systray --winssh ssh-pageant
+----
+
+. Open VS Code and connect to a remote host.
+You should no longer be prompted for a password.
+
+== References
+
+https://github.com/microsoft/vscode-remote-release/issues/61#issuecomment-508651407
+
