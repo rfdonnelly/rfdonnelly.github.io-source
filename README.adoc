@@ -15,35 +15,19 @@ git clone git@github.com:rfdonnelly/rfdonnelly.github.io-source.git --recursive
 
 [source,sh]
 ----
-docker run --rm -it \
-    -v $(pwd):/src \
-    -u $(id -u):$(id -g) \
-    klakegg/hugo:asciidoctor \
-    new posts/<post-name>.adoc
+make post NAME=<post-name>
 ----
 
 == Preview
 
 [source,sh]
 ----
-docker run --rm -it \
-    -v $(pwd):/src \
-    -p 1313:1313 \
-    klakegg/hugo:asciidoctor \
-    serve --bind 0.0.0.0 --buildDrafts
+make preview
 ----
 
 == Publish
 
 [source,sh]
 ----
-docker run --rm -it \
-    -v $(pwd):/src \
-    -v $(pwd)/public:/target \
-    -u $(id -u):$(id -g) \
-    klakegg/hugo:asciidoctor
-cd public
-git add .
-git commit -m "Publish $(date)"
-git push
+make publish
 ----
