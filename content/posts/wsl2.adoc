@@ -1,6 +1,12 @@
 ---
-title: "WSL2"
+title: "Using WSL2"
 date: 2020-02-03T22:44:58Z
+tags:
+- Software
+- Docker
+- WSL2
+- Windows Terminal
+- SSH
 ---
 
 :idprefix:
@@ -53,7 +59,7 @@ kernelCommandLine = vsyscall=emulate
 
 == Install Windows Terminal
 
-. Install Windows Terminal from the Microsoft Store
+. Install Windows Terminal from the Microsoft Store{wj}footnote:[Windows Terminal v1.4 as of this writing.]
 
 . Open Windows Terminal
 
@@ -125,7 +131,7 @@ kernelCommandLine = vsyscall=emulate
 .. Save configuration
 .. Open saved configuration to run VcXsrc
 
-. Open WSL terminal
+. Open a WSL terminal
 
 . Configure `$DISPLAY` by adding the following to your `~/.bashrc`
 +
@@ -170,11 +176,11 @@ NOTE: This assumes you manage SSH keys using PuTTY pageant or compatible applica
  curl -LO https://github.com/BlackReloaded/wsl2-ssh-pageant/releases/download/v1.0.0/wsl2-ssh-pageant.exe
  chmod +x wsl2-ssh-pageant.exe
 
-. Install socat
+. Install `socat`
 +
  sudo apt-get install socat
 
-. Add wsl2-ssh-pageant to your `~/.bashrc`
+. Add `wsl2-ssh-pageant` to your `~/.bashrc`
 +
 [source,sh]
 ----
