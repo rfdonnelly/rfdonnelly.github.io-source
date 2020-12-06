@@ -1,0 +1,22 @@
+---
+title: "M2020 Launch"
+date: 2020-12-06T23:54:41Z
+draft: true
+---
+
+It has been just under 5 years since I started working on Perseverance (Mars 2020 at the time).
+I've moved on to another project (Europa Clipper) but Perseverance will always be a highlight of my career.
+It was the project that brought me to JPL.
+
+There are so many neat things about this mission but I'll just highlight the parts I was personally involved with.
+I worked on the Lander Vision System (LVS) which will be used for both computer vision based autonomous landing and driving.
+During the landing phase, the system will process images from the lander camera and match them against onboard satelitte imagery to figure out the rover's position.
+This is the same function provided by GPS except the rover can't use GPS because there isn't a GPS satelite network around Mars.
+So instead, we use a computer vision based approach to position.
+Once the system delivers a position estimate, the flight computer will compare the position to a hazard map.
+"This position bad, this other position good."
+If the flight computer determines that the lander is headed to a hazardous landing site, it will perform a redirect manuever to a safe landing site.
+This reduces landing error from a 60km ellipse to a ~18m circle.
+
+Once Perseverance is safely on the ground, the same hardware will be reconfigured for autonomous driving using stereo vision.
+As far as I know, this is a first for 
