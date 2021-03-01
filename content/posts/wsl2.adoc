@@ -57,6 +57,7 @@ To run older Docker base images https://github.com/microsoft/WSL/issues/4694[a w
 [source]
 .Create `%userprofile%\.wslconfig` with the following content
 ----
+[wsl2]
 kernelCommandLine = vsyscall=emulate
 ----
 ====
