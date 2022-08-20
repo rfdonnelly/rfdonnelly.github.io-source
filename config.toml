@@ -18,6 +18,7 @@ pygmentsStyle = "friendly"
 
 [markup]
   [markup.asciidocExt]
+    backend = "html5s"
     extensions = ["asciidoctor-html5s", "asciidoctor-kroki"]
     preserveTOC = true
     sectionNumbers = true
