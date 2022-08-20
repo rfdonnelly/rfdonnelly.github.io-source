@@ -15,4 +15,4 @@ pygmentsUseClasses = true
 
 [markup]
   [markup.asciidocExt]
-    extensions = ["asciidoctor-diagram"]
+    extensions = ["asciidoctor-kroki"]

@@ -13,7 +13,7 @@ Support multiple clients on a single serial port.
 The existing hardware test setup consists of a host machine running a serial console that is connected to an embedded processor via UART.
 The embedded processor is interogated via memory peek and poke commands that are manually entered into the serial console.
 
-[dot]
+[graphviz]
 .Existing hardware test setup
 ----
 digraph G {
@@ -40,7 +40,7 @@ We must continue to support the ability to manually enter commands via the seria
 
 The naive way to do this is to simply open the serial port in both processes.
 
-[dot]
+[graphviz]
 .Enhanced hardware test setup
 ----
 digraph G {
@@ -76,7 +76,7 @@ The first part of the solution is to multiplex the serial port.
 Create two virtual serial ports and multiplex them on the physical serial port.
 Everything that is transmitted on one serial port is replicated on the other two serial ports.
 
-[dot]
+[graphviz]
 .Enhanced hardware test setup
 ----
 digraph G {
