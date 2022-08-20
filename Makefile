@@ -13,8 +13,10 @@ preview:
 	docker run --rm -it \
     	    -v $(PWD):/src \
     	    -p 1313:1313 \
-    	    hugo \
-    	    serve --bind 0.0.0.0 --buildDrafts
+    	    hugo -v\
+    	        serve \
+		--bind 0.0.0.0 \
+		--buildDrafts
 
 .PHONY: publish
 publish:
@@ -23,7 +25,7 @@ publish:
 	    -v $(PWD):/src \
 	    -v $(PWD)/public:/target \
 	    -u $(shell id -u):$(shell id -g) \
-	    hugo \
+	    hugo -v \
 	cd public \
 	    && git add . \
 	    && git commit -m "Publish $(date)" \
