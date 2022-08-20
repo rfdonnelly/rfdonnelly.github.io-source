@@ -10,13 +10,13 @@ draft: true
 
 Integrate async code into a Tauri application.
 
-More specifically we want two way communication between the Tauri webview and async Rust code.
+More specifically we want bidirectional communication between the Tauri webview and async Rust code.
 This can be broken up into two smaller problems,
 
 * Two way communication between the main thread (Rust) and the webview (JavaScript)
 * Two way communication between the main thread and an async process
 
-== Two-way Communication between Rust and JavaScript
+== Bidirectional Communication between Rust and JavaScript
 
 Tauri provides two communication mechanisms Events and Commands.
 Events be send in either direction while Commands can only go from JavaScript to Rust.
@@ -26,15 +26,11 @@ I choose to use Commands for JavaScript to Rust and Events for Rust to JavaScrip
 Establishing two-way communication between Rust and JavaScript is pretty straight-forward.
 The Tauri docs do a good job covering them.
 
-=== One-to-One vs ???
+=== One-to-One Simplification
 
-If the relationship between the input and output were one-to-one, we could simply use async Tauri commands.
-But in my case, the relationship is not one-to-one.
-Sometimes it is and sometimes it isn't.
+If you only need to support bidirectional communication initiated from JavaScript AND requests and responses are one-to-one, then async Tauri commands are sufficient.
 
-Because the relationship isn't fixed let alone one-to-one, we can't use Tauri Commands only.
-
-== Two-way Communication between the Main Thread and an Async Process
+== Bidirectional Communication between the Main Thread and an Async Process
 
 Passing messages between Rust and JavaScript may be straightforward but doing so between the Tauri main thread and an async process was not.
 Mostly because I couldn't find any examples.
