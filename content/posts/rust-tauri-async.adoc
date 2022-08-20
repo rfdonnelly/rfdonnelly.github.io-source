@@ -4,6 +4,8 @@ date: 2022-08-17T00:43:11Z
 draft: true
 ---
 
+:toc:
+
 == Goal
 
 Integrate async code into a Tauri application.

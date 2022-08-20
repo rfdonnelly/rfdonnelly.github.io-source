@@ -16,3 +16,5 @@ pygmentsUseClasses = true
 [markup]
   [markup.asciidocExt]
     extensions = ["asciidoctor-kroki"]
+    preserveTOC = true
+    sectionNumbers = true
