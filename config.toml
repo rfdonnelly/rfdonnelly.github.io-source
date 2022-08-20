@@ -12,3 +12,7 @@ pygmentsUseClasses = true
   name = "Rob Donnelly"
   github = "rfdonnelly"
   gaid = "UA-145317325-1"
+
+[markup]
+  [markup.asciidocExt]
+    extensions = ["asciidoctor-diagram"]
