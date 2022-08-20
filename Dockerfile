@@ -2,9 +2,11 @@ FROM klakegg/hugo:0.101.0-asciidoctor
 
 RUN \
     apk add --no-cache \
-        graphviz
+        graphviz \
+        python3
 
 RUN \
     gem install --no-document \
         asciidoctor-html5s \
-        asciidoctor-kroki
+        asciidoctor-kroki \
+        pygments.rb

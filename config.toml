@@ -2,8 +2,11 @@ baseURL = "https://rfdonnelly.github.io/"
 languageCode = "en-us"
 title = "Rob Donnelly"
 theme = "temple"
+
+# Markdown syntax highlighting
 pygmentsCodefences = true
 pygmentsUseClasses = true
+pygmentsStyle = "friendly"
 
 [params]
   dateformatpretty = "2006-01-02"
@@ -18,6 +21,11 @@ pygmentsUseClasses = true
     extensions = ["asciidoctor-html5s", "asciidoctor-kroki"]
     preserveTOC = true
     sectionNumbers = true
+    [markup.asciidocExt.attributes]
+      # Asciidoc syntax highlighting
+      source-highlighter = "pygments"
+      pygments-css = "style"
+      pygments-style = "friendly"
 
 [security]
   enableInlineShortcodes = false
