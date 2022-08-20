@@ -11,10 +11,30 @@ draft: true
 Integrate async code into a Tauri application.
 
 More specifically we want bidirectional communication between the Tauri webview and async Rust code.
-This can be broken up into two smaller problems,
 
-* Two way communication between the main thread (Rust) and the webview (JavaScript)
-* Two way communication between the main thread and an async process
+[graphviz]
+----
+digraph G {
+    rankdir="LR"
+
+    subgraph cluster_tauri {
+        label="Tauri\nApplication"
+
+        mt [label="MainThread\n(Rust)", shape=square]
+        ap [label="Async\nProcess\n(Rust)", shape=square]
+        wv [label="Webview\n(JavaScript)", shape=square]
+
+        wv -> mt -> ap [dir=both]
+    }
+}
+----
+
+This can be broken up into two smaller problems:
+
+Bidirectional communication between,
+
+* the webview (JavaScript) and the main thread (Rust)
+* the main thread (Rust) and the async process (Rust)
 
 == Bidirectional Communication between Rust and JavaScript
 
