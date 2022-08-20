@@ -1,0 +1,33 @@
+---
+title: "Safe UVM HDL Calls"
+date: 2022-04-13T00:22:06Z
+draft: true
+---
+
+The problem with "UVM HDL Backdoor Access support routines" like `uvm_hdl_deposit` is that the path argument is a string.
+
+[source,systemverilog]
+----
+uvm_hdl_depost("dut.net", value);
+----
+
+If the path is incorrect, you won't find out until you make the call at runtime and check the return value.
+Assuming you check the return value.
+You are, right?
+
+[source,systemverilog]
+----
+if (!uvm_hdl_depost("dut.net", value)) begin
+    `uvm_error(...)
+end
+----
+
+We can check the path at compile time using a SystemVerilog `release` statement.
+
+[source,systemverilog]
+----
+release dut.net;
+if (!uvm_hdl_depost("dut.net", value)) begin
+    `uvm_error(...)
+end
+----

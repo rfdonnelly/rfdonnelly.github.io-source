@@ -1,0 +1,118 @@
+---
+title: "Testing UVM Verification Components"
+date: 2022-02-01T01:11:26Z
+draft: true
+---
+
+A big benefit to UVM (Universal Verification Methodology) is reuse.
+Create a verification component once then reuse it across many designs.
+
+Verification components themselves need to be verified.
+Otherwise, how do you know it works?
+
+There is a lot of material available for using UVM to verify RTL designs but there is little to no material for verifying UVM verification components.
+It's a question of who polices the police or who verifies the verification if you will.
+
+This post answers that question by providing techniques for verifying UVM verification components.
+
+== Verify Drivers and Monitors
+
+Drivers and monitors can often be verified together at the same time.
+Create an output expectation, create an input sequence, compare the monitored output to the expected output.
+This verifies them indirectly.
+
+However, there are some cases where you might want to remove one or the other to test them in isolation to make sure they aren't doing the same wrong thing.
+This can be done by using the SystemVerilog interface directly.
+
+For monitors, instead of creating an input sequence, you'd manipulate the signals on the interface directly.
+For drivers, instead of checking the monitored output, you'd check the signals on the interface directly.
+
+=== Indirect
+
+To verify indirectly, a scoreboard is used.
+
+In the test, an output expectation and input sequence is created.
+The output expectation is pushed into the scoreboard.
+The input sequence is started on the verification component sequencer.
+
+The driver drives the sequence onto the interface.
+The monitor sees this activity and generates a sequence item.
+
+The scoreboard gets the sequence item, matches it to an expectation and compares them.
+
+=== Direct
+
+
+
+=== Checking Output
+
+
+== Verify Reporting
+
+To verify reporting, we use a similar expectation flow but with different implementation details.
+
+We create a report expectation, catch all verification component report messages and compare them to the report expectation.
+
+[source,systemverilog]
+----
+class reporting_scoreboard extends uvm_scoreboard;
+    `uvm_object_utils(reporting_scoreboard)
+
+    `uvm_analysis_imp_decl(_expected)
+    `uvm_analysis_imp_decl(_actual)
+
+    uvm_analysis_imp_expected#(report_object, report_scoreboard) analysis_export_expected;
+    uvm_analysis_imp_actual#(report_object, report_scoreboard) analysis_export_actual;
+
+    report_object expectations[$];
+
+    function new(string name, uvm_component parent);
+        super.new(name, parent);
+    endfunction
+
+    virtual function void build_phase(uvm_phase phase);
+        super.build_phase(phase);
+
+        analysis_export_expected = new("analysis_export_expected", this);
+        analysis_export_actual = new("analysis_export_actual", this);
+    endfunction
+
+    function void write_expected(report_object report);
+        expectations.push_back(report);
+    endfunction
+
+    function void write_actual(report_object report);
+        if (expectations.size() == 0) begin
+            `uvm_error(get_name(), $sformatf(
+                "no expectation for report: %s",
+                report.convert2string()
+            )
+        end else begin
+            report_object expected = expectations.pop_front();
+
+            if (!actual.compare(expected)) begin
+                `uvm_error(get_name(), $sformatf({
+                        "report mismatch\n",
+                        "expected: %s\n",
+                        "actual:   %s"
+                    },
+                    expected.convert2string(),
+                    actual.convert2string()
+                ))
+            end else begin
+                `uvm_info(get_name(), $sformatf(
+                    "actual == expected for %s"
+                    actual.convert2string()
+                ))
+            end
+        end
+    endfunction
+
+    virtual function void check_phase(uvm_phase phase);
+        super.check_phase(phase);
+
+        if (expectations.size() != 0) begin
+            `uvm_error(get_name(), "expectation queue is not empty")
+        end
+    endfunction
+endclass

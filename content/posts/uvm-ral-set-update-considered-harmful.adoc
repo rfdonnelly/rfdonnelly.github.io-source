@@ -1,0 +1,188 @@
+---
+title: "UVM RAL Set and Update Considered Harmful"
+date: 2022-02-01T22:55:51Z
+draft: true
+---
+
+= UVM RAL Set and Update Considered Harmful
+
+It is better to manipulate registers symbolically instead of using magic values.
+
+In old environments it was common to see code like
+
+[source,systemverilog]
+----
+write(32'h0c0001104, 32'h600dc0de);
+----
+
+The only thing we can infer from this is that it is performing a write access to some address with some data.
+It isn't even clear which magic value is the address and and which is the data.
+
+If we assume the first magic value is the address and the second is the data, we still aren't much better off.
+What does the address map to?
+A region of memory?
+A register?
+What does the data represent?
+What register fields is it writing what values to?
+
+Then UVM came along.
+And things got better?
+
+Now you might see something like
+
+[source,systemverilog]
+----
+regs.myreg.write(status, 'h600dc0de);
+----
+
+This is 50% better.
+Now instead of a hardcoded address, the address is specified symbolically as `regs.myreg`.
+But we still have the hardcoded data value.
+We can do better.
+
+[source,systemverilog]
+----
+regs.myreg.field_a.set(222);
+regs.myreg.field_b.set(192);
+regs.myreg.field_c.set(13);
+regs.myreg.field_d.set(96);
+regs.myreg.update(status); // <1>
+----
+<1> Writes `32'h600dc0de` assuming fields a, b, c, and d are all read-write.
+
+This is much more readable!
+Problem solved right?
+No.
+We've only traded one set of problems for a different set of problems.
+
+The problem with `update()` is abstraction.
+`update()` doesn't allow us to put explicit write data values on the bus.
+The `set()` method sets the _desired_ value for the field (or the value we _want_ the field to be).
+The `set()` method does _not_ directly determine the bus write value.
+The `update()` method then calculates the bus write value for each field as a function of the _desired_ field value and the field access type.
+
+If the field access type is read-write, then the bus write values _is_ the same as the _desired_ value.
+But if the field access type is write-1-to-clear, then a _desired_ value of 0 will result in a bus write value of 1.
+Ok, so we just need to think in terms of _desired_ value instead of _bus_ values.
+
+Not so fast.
+What happens for fields that we don't explicitly set a desired value for?
+Well, it will be whatever the _mirrored_ value is (or the value that the model thinks the design contains).
+Technically, it is still the _desired_ value but since we didn't explicitly specify a _desired_ value then the _desired_ value is implicitly equal to the _mirrored_ value.
+
+TODO: Illustrate the problem with https://jira.jpl.nasa.gov/browse/AVSE-1968
+
+Can we do better?
+What about?
+
+[source,systemverilog]
+----
+regs.myreg.set(0);
+regs.myreg.field_a.set(222);
+regs.myreg.field_b.set(192);
+regs.myreg.field_c.set(13);
+regs.myreg.field_d.set(96);
+regs.myreg.write(status, regs.myreg.get());
+----
+
+TODO
+
+== The Ideal Solution
+
+[source,systemverilog]
+.Implementation
+----
+virtual task reg_write(uvm_reg r, uvm_reg_data_t fields[uvm_reg_field]);                                                                                                                                                                                                             uvm_reg_data_t data;
+    uvm_reg_data_t data;
+
+    foreach (fields[f]) begin
+        uvm_reg_data_t field_value = fields[f];
+        uvm_reg_data_t field_value_mask = (1 << f.get_n_bits()) - 1;
+        uvm_reg_data_t field_value_masked = field_value & field_value_mask;
+
+        data |= field_value_masked << f.get_lsb_pos();
+    end
+
+    r.write(status, data);
+endtask
+----
+
+[source,systemverilog]
+.Usage
+----
+reg_write(regs.myreg, '{
+    regs.myreg.field_a: 222,
+    regs.myreg.field_b: 192,
+    regs.myreg.field_c: 13,
+    regs.myreg.field_d: 96
+});
+----
+
+However, there is still a problem.
+The use of non-const keys (e.g. `regs.myreg.field_a`) in associative array literals is non-standard SystemVerilog.
+
+== The Final Solution
+
+We can create a similar syntax using the https://en.wikipedia.org/wiki/Builder_pattern[builder pattern] and https://en.wikipedia.org/wiki/Method_chaining[method chaining].
+We'll use a builder to build up and then perform our register access.
+
+[source,systemverilog]
+.Implementation
+----
+// Class: reg_write_builder
+//
+// Used for building then performing a register write access.
+class reg_write_builder;
+    uvm_reg register;
+    uvm_reg_data_t field_values[uvm_reg_field];
+
+    function new(uvm_reg register);
+        this.register = register;
+    endfunction
+
+    // Function: set
+    //
+    // Sets the value of a field.
+    function reg_write_builder set(uvm_reg_field field, uvm_reg_data_t value);
+        field_values[field] = value;
+        return this;
+    endfunction
+
+    // Task: write
+    //
+    // Assembles the write data and performs the write access.
+    task write();
+        uvm_status_e status;
+        uvm_reg_data_t data;
+
+        foreach (field_values[f]) begin
+            uvm_reg_data_t field_value = field_values[f];
+            uvm_reg_data_t field_value_mask = (1 << f.get_n_bits()) - 1;
+            uvm_reg_data_t field_value_masked = field_value & field_value_mask;
+
+            data |= field_value_masked << f.get_lsb_pos();
+        end
+
+        register.write(status, data);
+    endtask
+endclass
+
+// Function: reg_write
+//
+// Entry point for building then performing a register write access.
+function reg_write_builder reg_write(uvm_reg register);
+    reg_write_builder builder = new(register);
+    return builder;
+endfunction
+----
+
+[source,systemverilog]
+.Usage
+----
+reg_write(regs.myreg)
+    .set(regs.myreg.field_a, 222)
+    .set(regs.myreg.field_b, 192)
+    .set(regs.myreg.field_c, 13)
+    .set(regs.myreg.field_d, 96)
+    .write();
+----

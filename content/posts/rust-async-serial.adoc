@@ -1,0 +1,137 @@
+---
+title: "Rust Async Serial"
+date: 2022-08-16T20:26:44Z
+draft: true
+---
+
+== Goal
+
+Support multiple clients on a single serial port.
+
+=== Existing Setup
+
+The existing hardware test setup consists of a host machine running a serial console that is connected to an embedded processor via UART.
+The embedded processor is interogated via memory peek and poke commands that are manually entered into the serial console.
+
+[dot]
+.Existing hardware test setup
+----
+digraph G {
+    rankdir="LR";
+
+    subgraph cluster_host {
+        label="Host System";
+        sp [label="Serial\nPort", shape=square];
+        sc [label="Serial\nConsole", shape=square];
+        sc -> sp [dir=both];
+    }
+
+    es [label="Embedded\nSystem", shape=square];
+    sp -> es [dir=both, label="UART cable"];
+}
+----
+
+=== Enhanced Setup
+
+We want to added a graphical tool that provides an interactive point-and-click interface for performing memory peek and poke commands.
+We want to do this w/o modifying the existing setup.
+We want the change to be purely additive.
+We must continue to support the ability to manually enter commands via the serial console inaddition to supporting the ability to perform commands via the new graphical interface.
+
+The naive way to do this is to simply open the serial port in both processes.
+
+[dot]
+.Enhanced hardware test setup
+----
+digraph G {
+    rankdir="LR";
+
+    subgraph cluster_host {
+        label="Host System"
+        sp [label="Serial\nPort", shape=square]
+        sc [label="Serial\nConsole", shape=square]
+        gui [label="GUI", shape=square]
+
+        sc -> sp [dir=both, label="?", style=dotted]
+        gui -> sp [dir=both, label="?", style=dotted]
+
+    }
+
+    es [label="Embedded\nSystem", shape=square]
+    sp -> es [dir=both, label="UART cable"]
+}
+----
+
+This doesn't work.
+First, processes tend to claim exclusive access to serial ports.
+And even if your processes don't claim exclusive access on the serial port, both processes would not get the same read data.
+TODO: Is this true?
+If one process reads data out of the serial RX buffer, that data is removed from the buffer and not available to the other process.
+Best case, one process gets a coherent stream of all of the read data and the other gets none.
+Worse case, the read data is interleaved between the two processes, nethier getting a coherent stream of data.
+
+== Serial Port Multiplexing
+
+The first part of the solution is to multiplex the serial port.
+Create two virtual serial ports and multiplex them on the physical serial port.
+Everything that is transmitted on one serial port is replicated on the other two serial ports.
+
+[dot]
+.Enhanced hardware test setup
+----
+digraph G {
+    rankdir="LR";
+
+    subgraph cluster_host {
+        label="Host System"
+        sp [label="Serial\nPort", shape=square]
+        sc [label="Serial\nConsole", shape=square]
+        gui [label="GUI", shape=square]
+
+        vmux [label="Virtual\nMux", shape=square]
+        vsp0 [label="Virtual\nSerial Port", shape=square]
+        vsp1 [label="Virtual\nSerial Port", shape=square]
+
+        vmux -> sp [dir=both]
+        sc -> vsp0 [dir=both]
+        gui -> vsp1 [dir=both]
+        vsp0 -> vmux [dir=both]
+        vsp1 -> vmux [dir=both]
+    }
+
+    es [label="Embedded\nSystem", shape=square]
+    sp -> es [dir=both, label="UART cable"]
+}
+----
+
+== Transactions from Both Virtual Serial Ports
+
+The next problem is making the graphical interface aware of transactions initiated from the graphical interface as well as transactions initiated from the serial console.
+We can easily do one or the other but doing both is more complicated.
+
+If we only support GUI initiated transactions, we simply transmit the command on the serial port then wait for a response.
+When we get a response, we bubble the response back up to the GUI.
+We only listen to the serial port after sending a command that generates a response.
+
+If we only support console initiated transactions, we simply listen to everything on the serial port and search for command and response strings.
+When we see both a command and a response, we bubble the command/response pair up to the GUI.
+
+To support both, we can't selectively listen because we'll miss console initiated transactions.
+And we can't just continuously listen to the serial port because we'll miss GUI initiated transactions since the GUI initiated commands aren't included in the serial RX stream.
+
+Serial consoles have a solution.
+The transmit data is not included in the receive data stream.
+If you type data into a serial console without accounting for this, the serial data will be transmitted on the serial port but you won't see anything displayed on the screen.
+This is disorienting so serial consoles provide a solution in the form of the echo feature.
+
+As you enter data into a serial console it is echoed to the screen AND transmitted on the serial port.
+
+We can do similar to accept both console initiated transactions AND GUI initiated transactions.
+
+When we the GUI initiates a transaction, it will send the command to both the serial TX port AND a buffer.
+We also continuously listen to the serial RX port.
+Instead of parsing the data directly out of the serial RX data stream, we send it to the same buffer.
+Our buffer now contains both the "echoed" GUI initiated command and the received response.
+We now have a single combined TX/RX data stream to parse for transactions.
+
+With this, the GUI will now see both GUI initiated transactions as well as console initiated transactions.

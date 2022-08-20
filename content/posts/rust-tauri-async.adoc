@@ -1,0 +1,128 @@
+---
+title: "Rust Tauri Async"
+date: 2022-08-17T00:43:11Z
+draft: true
+---
+
+== Goal
+
+Integrate async code into a Tauri application.
+
+More specifically we want two way communication between the Tauri webview and async Rust code.
+This can be broken up into two smaller problems,
+
+* Two way communication between the main thread (Rust) and the webview (JavaScript)
+* Two way communication between the main thread and an async process
+
+== Two-way Communication between Rust and JavaScript
+
+Tauri provides two communication mechanisms Events and Commands.
+Events be send in either direction while Commands can only go from JavaScript to Rust.
+
+I choose to use Commands for JavaScript to Rust and Events for Rust to JavaScript with the assumption that Commands are better than Events.footnote:[I don't have an evidence to back this up.]
+
+Establishing two-way communication between Rust and JavaScript is pretty straight-forward.
+The Tauri docs do a good job covering them.
+
+=== One-to-One vs ???
+
+If the relationship between the input and output were one-to-one, we could simply use async Tauri commands.
+But in my case, the relationship is not one-to-one.
+Sometimes it is and sometimes it isn't.
+
+Because the relationship isn't fixed let alone one-to-one, we can't use Tauri Commands only.
+
+== Two-way Communication between the Main Thread and an Async Process
+
+Passing messages between Rust and JavaScript may be straightforward but doing so between the Tauri main thread and an async process was not.
+Mostly because I couldn't find any examples.
+
+I'm pretty happy with the final implementation.
+
+The inputs and outputs of the async process implemented as `tokio::mpsc` (Multi-Producer Single-Consumer).
+We only have a single producer but there isn't a more specific channel primitive for single-producer, single-consumer.
+
+=== Who Owns the Async Runtime
+
+Tauri uses Tokio internally and abstracts this complexity from the user.
+For example, Tauri uses Tokio but doesn't require an async main and a `#[tokio::main]` annotation.
+Tauri hides all of this from use.
+
+Tauri owns and constructs the Tokio runtime by default but allows you to manage Tokio yourself.
+We can do this by simply adding the `#[tokio::main]` annotation, adding `async` to main, and then telling Tauri to use our Tokio runtime.
+
+[source,rust]
+----
+#[tokio::main]
+async fn main() {
+    tauri::async_runtime::set(tokio::runtime::Handle::current());
+
+    // ...
+}
+----
+
+TODO: Is this even necessary if we do all async in Tauri (i.e. inside `tauri::Builder::setup`)?
+
+=== Creating the Channels
+
+Channels need to be created for both directions: inputs in to the async process and outputs out of the async process.
+They should be created with the least scope possible.
+To determine this, we need to figure out where we will be using them.
+
+TODO: Finish
+
+=== Running the Async Process
+
+The async process can be run insider of Tauri or outside of Tauri.
+Either will work but running outside of Tauri will require owning the Tokio runtime.
+
+==== Inside Tauri
+
+[source,rust]
+----
+async fn main() {
+    ...
+
+    let (async_process_input_tx, async_process_input_rx) = mpsc::channel(1);
+    let (async_process_output_tx, async_process_output_rx) = mpsc::channel(1);
+
+    tauri::Builder::default()
+        .setup(|app| {
+            tokio::spawn(async move {
+                async_process(async_process_input_rx, async_process_output_tx).await
+            });
+
+            Ok(())
+        }
+        .run(...)
+        ...
+}
+----
+
+==== Outside Tauri
+
+[source,rust]
+----
+async fn main() {
+    ...
+
+    let (async_process_input_tx, async_process_input_rx) = mpsc::channel(1);
+    let (async_process_output_tx, async_process_output_rx) = mpsc::channel(1);
+
+    tokio::spawn(async move {
+        async_process(async_process_input_rx, async_process_output_tx).await
+    });
+
+    tauri::Builder::default()
+        .run(...)
+        ...
+}
+----
+
+=== Main Thread to Async Process
+
+=== Async Process to Main Thread
+
+== Integrating Async Code
+
+

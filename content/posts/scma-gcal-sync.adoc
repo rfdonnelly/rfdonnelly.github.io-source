@@ -1,0 +1,248 @@
+---
+title: scma-gcal-sync
+date: 2022-01-17T00:51:06Z
+draft: true
+---
+
+= SCMA Google Calendar Sync
+
+== Rust
+
+=== Async
+
+=== Tokio, Futures, std::futures oh my
+
+What is the relationship between these three?
+
+https://users.rust-lang.org/t/relationship-between-std-futures-futures-and-tokio/38077
+
+=== Errors
+
+I decided to defer thinking too much about errors by using the `Box<dyn std::error::Error>` error type for everything with the plan to revisit later.
+
+This worked out fairly well for code writing efficiency.
+However, when errors happened it sometimes hurt when no source location information was included.
+This was compounded by having many tasks running concurrently.
+Which task was the source of the error?
+
+In some cases, I felt that using `unwrap()` would have been better from a error debug stand point but it would have meant taking on more technical debt early in the project.
+
+I need to find a good default error type that provides backtraces.
+
+=== Debugging Dependencies
+
+I cloned the google-apis-rs repository into my project.
+
+ git clone git@github.com:Byron/google-apis-rs.git
+
+Then I modified my `Cargo.toml` to use the local version of the `google_people1` crate.
+
+[source,diff]
+----
+diff --git a/Cargo.toml b/Cargo.toml
+index 97bc7ca..cd83337 100644
+--- a/Cargo.toml
++++ b/Cargo.toml
+@@ -27,7 +27,7 @@ hyper = "^0.14"
+ hyper-rustls = "^0.22"
+ serde_json = "1.0.74"
+ html-escape = "0.2.9"
+-google-people1 = "2.0.8"
++google-people1 = { path = "google-apis-rs/gen/people1", version = "2.0.8" }
+
+ [dev-dependencies]
+ insta = "1.10.0"
+----
+
+Now I could modify the `google_people1` crate at will.
+My first change was to simply print out the response body.
+
+[source,diff]
+----
+diff --git a/gen/people1/src/api.rs b/gen/people1/src/api.rs
+index 51fa9727a..bd7ed3c5b 100644
+--- a/gen/people1/src/api.rs
++++ b/gen/people1/src/api.rs
+@@ -8704,7 +8704,10 @@ impl<'a> PeopleUpdateContactCall<'a> {
+                         }
+                         dlg.finished(false);
+                         return match json::from_str::<client::ErrorResponse>(&res_body_string){
+-                            Err(_) => Err(client::Error::Failure(res)),
++                            Err(_) => {
++                                eprintln!("error: {}", res_body_string);
++                                Err(client::Error::Failure(res))
++                            }
+                             Ok(serr) => Err(client::Error::BadRequest(serr))
+                         }
+                     }
+----
+
+Rerunning my application I now got a much more helpful message.
+
+[listing]
+----
+response: {
+  "error": {
+    "code": 400,
+    "message": "Request must set person.etag or person.metadata.sources.etag for the source that is being updated.",
+    "status": "INVALID_ARGUMENT"
+  }
+}
+----
+
+But I _was_ setting the `person.metadata.sources.etag`!
+Let's look at the raw request body too.
+To do that, we need another modification to the `google_people1` crate to print the request body.
+
+[source,diff]
+----
+diff --git a/gen/people1/src/api.rs b/gen/people1/src/api.rs
+index 51fa9727a..29863aead 100644
+--- a/gen/people1/src/api.rs
++++ b/gen/people1/src/api.rs
+@@ -8647,6 +8647,9 @@ impl<'a> PeopleUpdateContactCall<'a> {
+         let request_size = request_value_reader.seek(io::SeekFrom::End(0)).unwrap();
+         request_value_reader.seek(io::SeekFrom::Start(0)).unwrap();
+
++        let mut buffer = String::with_capacity(4096);
++        request_value_reader.read_to_string(&mut buffer)?;
++        eprintln!("request: {}", buffer);
+
+         loop {
+             let token = match self.hub.auth.token(&self._scopes.keys().collect::<Vec<_>>()[..]).await {
+----
+
+Now we get the following request and response pair.
+
+[listing]
+----
+request: {"metadata":{"sources":[{"etag":"=8lwNsoow9Bc="}]},"phoneNumbers":[{"type":"SCMA","value":"+15555555557"}]}
+response: {
+  "error": {
+    "code": 400,
+    "message": "Request must set person.etag or person.metadata.sources.etag for the source that is being updated.",
+    "status": "INVALID_ARGUMENT"
+  }
+}
+----
+
+Ok so I _am_ setting the `person.metadata.sources.etag` and it still doesn't like it.
+Maybe if I set the `person.etag` instead?
+
+And...
+
+[listing]
+----
+request: {"etag":"%EgsBAgkLEC43PT4/QBoEAQIFByIMeEUzV0FRSmE1S1U9","phoneNumbers":[{"type":"SCMA","value":"+15555555557"}]}
+2022-01-28T19:16:27.113034Z  INFO scma_gcal_sync::output::gppl: Updated person person=Person { addresses: Some([Address { city: None, country: None, country_code: None, extended_address: None, formatted_type: Some("SCMA"), formatted_value: Some("555 Some St, City, ST 55555"), metadata: Some(FieldMetadata { primary: Some(true), source: Some(Source { etag: None, id: Some("2573b1698d314285"), profile_metadata: None, type_: Some("CONTACT"), update_time: None }), verified: None }), po_box: None, postal_code: None, region: None, street_address: Some("ST 55555\n555 Some St, City"), type_: Some("SCMA") }]), age_range: None, age_ranges: None, biographies: None, birthdays: None, bragging_rights: None, calendar_urls: None, client_data: None, cover_photos: None, email_addresses: Some([EmailAddress { display_name: None, formatted_type: Some("SCMA"), metadata: Some(FieldMetadata { primary: Some(true), source: Some(Source { etag: None, id: Some("2573b1698d314285"), profile_metadata: None, type_: Some("CONTACT"), update_time: None }), verified: None }), type_: Some("SCMA"), value: Some("delete.me@example.com") }]), etag: Some("%EgsBAgkLEC43PT4/QBoEAQIFByIMK0pidDZ5NzJYTkE9"), events: None, external_ids: None, file_ases: None, genders: None, im_clients: None, interests: None, locales: None, locations: None, memberships: Some([Membership { contact_group_membership: Some(ContactGroupMembership { contact_group_id: Some("myContacts"), contact_group_resource_name: Some("contactGroups/myContacts") }), domain_membership: None, metadata: Some(FieldMetadata { primary: None, source: Some(Source { etag: None, id: Some("2573b1698d314285"), profile_metadata: None, type_: Some("CONTACT"), update_time: None }), verified: None }) }]), metadata: Some(PersonMetadata { deleted: None, linked_people_resource_names: None, object_type: Some("PERSON"), previous_resource_names: None, sources: Some([Source { etag: Some("=+Jbt6y72XNA="), id: Some("2573b1698d314285"), profile_metadata: None, type_: Some("CONTACT"), update_time: Some("2022-01-28T19:16:25.948603Z") }]) }), misc_keywords: None, names: Some([Name { display_name: Some("Delete Me"), display_name_last_first: Some("Me, Delete"), family_name: Some("Me"), given_name: Some("Delete"), honorific_prefix: None, honorific_suffix: None, metadata: Some(FieldMetadata { primary: Some(true), source: Some(Source { etag: None, id: Some("2573b1698d314285"), profile_metadata: None, type_: Some("CONTACT"), update_time: None }), verified: None }), middle_name: None, phonetic_family_name: None, phonetic_full_name: None, phonetic_given_name: None, phonetic_honorific_prefix: None, phonetic_honorific_suffix: None, phonetic_middle_name: None, unstructured_name: Some("Delete Me") }]), nicknames: None, occupations: None, organizations: None, phone_numbers: Some([PhoneNumber { canonical_form: None, formatted_type: Some("SCMA"), metadata: Some(FieldMetadata { primary: Some(true), source: Some(Source { etag: None, id: Some("2573b1698d314285"), profile_metadata: None, type_: Some("CONTACT"), update_time: None }), verified: None }), type_: Some("SCMA"), value: Some("+15555555557") }]), photos: None, relations: None, relationship_interests: None, relationship_statuses: None, residences: None, resource_name: Some("people/c2698695668623557253"), sip_addresses: None, skills: None, taglines: None, urls: None, user_defined: None }
+----
+
+It works!
+
+Now we can revert our change to `Cargo.toml` and remove our local version of the `google_people1` crate.
+
+ git checkout -- Cargo.toml
+ rm -rf google-apis-rs
+
+== Reverse Engineering Ohanah
+
+While reviewing the source of the pages I noticed several references to "ohanah".
+It seemed to be the component responsible for all calendar event related content.
+A quick Google search revealed Ohanah to be a third-party Joomla extension.
+All available content was for version 3.
+The SCMA site was created pre-v3 and was thus on v2.
+Very little documentation was publically availble for either version.
+I did, however, find mention of a REST API for v3.
+All you had to do was slap a "?format=json" on the end of any page to get a JSON formatted version.
+This would simplify parsing greatly!
+
+I tried this on the Event List page and was rewarded with a wealth of information.
+It not only returned _every_ event but it also returned several details that I had to previously fetch each individual event page for.
+
+I then tried it on other pages with less success.
+On the event detail page and the member roster page, adding the "format=json" query string resulted in the same HTML being returned but in plain text.
+
+I still needed to fetch each event page for all the details I wanted.
+And I would need to parse the HTML.
+
+TODO: the select crate.
+
+== A Breakthrough
+
+In most cases, I didn't need _all_ events.
+I just needed current and future events.
+I was fetching the entire event list, filtering out most of the events, and only operating on a very small subset.
+The fetch for the event list JSON was by far the most expensive fetch.
+This was causing the server to build a larger response than necessary and transfer more data over the wire than necessary.
+Maybe there was some way I could move the filtering from the client side to the server side.
+This would simplify the work on both sides and reduce the data transfered.
+A win-win.
+
+I did another round of Google searches.
+Nothing new.
+I then thought to try a GitHub search.
+I found the beyounic/ohanah-v2-docs repository.
+Documentation for version 2 from Beyounic, the company that created Ohanah!?
+Exactly what I was looking for.
+Click.
+Two essentially empty Markdown files.
+Nice.
+
+I took another look at the search results and saw https://github.com/Mcfeell/ohanah.
+The complete source code for Ohanah!
+This was even better than documentation.
+Documentation isn't always correct nor exhaustive.
+
+I wanted to filter by the event start date.
+This field was labled `start_date` in the JSON so I started searching for that.
+This led to https://github.com/Mcfeell/ohanah/blob/6a5736f37dcc4e57f4f31124f34633a533ededea/site/components/com_ohanah/views/events/json.php=L19.
+Which then led to https://github.com/Mcfeell/ohanah/blob/6a5736f37dcc4e57f4f31124f34633a533ededea/site/components/com_ohanah/views/events/json.php=L39-L42 which looks like it converts a the `start_date` query paramter to the `calendar_start_date` field on some model.
+
+== Google APIs
+
+=== Authentication
+
+==== User
+
+==== Service Account
+
+Service accounts cannot access user data.
+Instead, a service account is a completely separate account with its own data.
+
+For example, you can create a calendar under the service account and share it with the user but you create a calendar under the user's account directly.
+
+This makes it a non-starter for syncing contacts.
+We want to update the user's contacts.
+Contacts don't do the user much good when attached to the service account.
+
+=== Calendar API
+
+==== Update Doesn't Create
+
+:events.insert: https://developers.google.com/calendar/api/v3/reference/events/insert[events.insert]
+:events.patch: https://developers.google.com/calendar/api/v3/reference/events/patch[events.patch]
+:events.update: https://developers.google.com/calendar/api/v3/reference/events/update[events.update]
+
+I initially implemented event sync as a patch-or-insert meaning that the {events.patch} method would first be tried.
+If it was successful, it meant that the event already existed and was successfully patched.
+If it failed, it meant that the event did not already exist and needed to be inserted, in which case, the {events.insert} method would then be executed.
+
+I then discovered that the {events.update} method uses the https://developer.mozilla.org/en-US/docs/Web/HTTP/Methods/PUT[HTTP `PUT` request method] and that `PUT` "creates a new resource or replaces [it]."
+So I ripped out my patch-or-insert implementation and replaced it with a single {events.update} method.
+I was suprised when this resulted in a 404 response indicating that the requested event was not found.
+
+So the `events.update` method uses `PUT` but does not fully obey `PUT` semantics.
+Bummer.
+
+ git reset --hard 'HEAD^'
+
+* IDs
+* Patch semantics
+* CalendarList
+* Calendars
+* Events
+* ACLs
+
+=== People API
+
+The https://developers.google.com/contacts/v3[Contacts API] is now deprecated and superseded by the https://developers.google.com/people[People API].
