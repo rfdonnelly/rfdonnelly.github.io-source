@@ -6,4 +6,5 @@ RUN \
 
 RUN \
     gem install --no-document \
+        asciidoctor-html5s \
         asciidoctor-kroki
