@@ -9,32 +9,113 @@ draft: true
 == Goal
 
 Integrate async code into a Tauri application.
-
 More specifically we want bidirectional communication between the Tauri webview and async Rust code.
+Either side can initiate a request.
+A request may or may not have a corresponding response.
+
+The Tauri main thread manages both the webview and the async process.
+The main thread sits between the two.
 
 [graphviz]
+.A diagram of our desired Tauri application
 ----
 digraph G {
-    rankdir="LR"
+    rankdir=RL
 
     subgraph cluster_tauri {
         label="Tauri\nApplication"
 
-        mt [label="MainThread\n(Rust)", shape=square]
+        mt [label="Main Thread\n(Rust)", shape=square]
         ap [label="Async\nProcess\n(Rust)", shape=square]
         wv [label="Webview\n(JavaScript)", shape=square]
 
-        wv -> mt -> ap [dir=both]
+        wv -> mt -> ap [constraint=false]
+        ap -> mt -> wv
+     }
+}
+----
+
+So we can break this up into two smaller problems: bidirectional communication between,
+
+* the webview (JavaScript) and the main thread (Rust)
+* the main thread (Rust) and the async process (Rust)
+
+=== Additional Details
+
+The async process can generate solicited or unsolicited messages.
+In other words, messages that JavaScript asked for and messages that JavaScript did not ask for.
+
+== Create a Tauri App
+
+First we need to create a Tauri application.
+
+Follow the https://tauri.app/v1/guides/getting-started/prerequisites/[Tauri Getting Started] instructions for installing the necessary prerequisites.
+
+Run the `create-tauri-app` utility
+
+[source,sh]
+----
+npm create tauri-app
+----
+
+And make the following entries/selections
+
+[listing, subs="quotes"]
+----
+? What is your app name? *tauri-async*
+? What should the window title be? *Tauri App*
+? What UI recipe would you like to add? *create-vite*
+? Add "@tauri-apps/api" npm package? *Yes*
+? Which vite template would you like to use? *vue*
+----
+
+Then run build and run the application
+
+[source,sh]
+----
+cd tauri-async
+npm install
+npm run tauri dev
+----
+
+.The Tauri application with the Vite + Vue template
+image::create-tauri-app-vite-vue.png["The default application window for the Tauri Vite + Vue template"]
+
+== Async Process
+
+Next, we need to know what our async process looks like.
+We're going to keep it really generic here to make this generally applicable to many specific applications.
+
+We'll model our async process as a simple async function with an infinite loop that pulls input strings from an input channel and pushes output strings into an output channel.
+
+Our async process model in `src-tauri/src/main.rs`
+
+[source,rust]
+----
+use tokio::sync::mpsc;
+
+// ...
+
+async fn async_process_model(
+    mut input_rx: mpsc::Receiver<String>,
+    output_tx: mpsc::Sender<String>,
+) -> Result<(), Box<dyn std::error::Error>> {
+    loop {
+        let input = input_rx.recv().await.ok_or_else(|| "channel closed")?;
+        let output = input;
+        output_tx.send(output).await?;
     }
 }
 ----
 
-This can be broken up into two smaller problems:
+Even though Tauri uses and re-exports (via the https://docs.rs/tauri/1.0.5/tauri/async_runtime/index.html[`tauri::async_runtime`] module) some of the Tokio types, it doesn't re-export everything we need.
+So we'll need to add Tokio.
 
-Bidirectional communication between,
-
-* the webview (JavaScript) and the main thread (Rust)
-* the main thread (Rust) and the async process (Rust)
+[source,sh]
+----
+cd tauri-src
+cargo add tokio --features full
+----
 
 == Bidirectional Communication between Rust and JavaScript
 
@@ -46,9 +127,82 @@ I choose to use Commands for JavaScript to Rust and Events for Rust to JavaScrip
 Establishing two-way communication between Rust and JavaScript is pretty straight-forward.
 The Tauri docs do a good job covering them.
 
-=== One-to-One Simplification
+=== Possible Simplification
 
-If you only need to support bidirectional communication initiated from JavaScript AND requests and responses are one-to-one, then async Tauri commands are sufficient.
+You can get by with async Tauri Commands only if:
+
+* JavsScript initiates the communication
+* Requests/responses are one-to-one or one-to-none
+
+Otherwise, you also need Tauri Events.
+In this case, our requirements are more general and thus require the more general Events.
+
+=== The JavaScript Side
+
+Replace the content of `src/components/HelloWorld.vue` with
+
+[source,vue]
+----
+<script setup>
+import { ref } from 'vue'
+import { listen } from '@tauri-apps/api/event'
+import { invoke } from '@tauri-apps/api/tauri'
+
+const output = ref("");
+const outputs = ref([]);
+const inputs = ref([]);
+
+function sendOutput() {
+    console.log("js: js2rs: " + output.value)
+    outputs.value.push({ timestamp: Date.now(), message: output.value })
+    invoke('js2rs', { message: output.value })
+}
+
+await listen('rs2js', (event) => {
+    console.log("js: rs2js: " + event)
+    let input = event.payload
+    inputs.value.push({ timestamp: Date.now(), message: input })
+})
+</script>
+
+<template>
+  <div style="display: grid; grid-template-columns: auto auto;">
+    <div style="grid-column: span 2; grid-row: 1;">
+      <label for="input" style="display: block;">Message</label>
+      <input id="input" v-model="output">
+      <br>
+      <button @click="sendOutput()">Send to Rust</button>
+    </div>
+    <div style="grid-column: 1; grid-row: 2;">
+      <h3>js2rs events</h3>
+      <ol>
+        <li v-for="output in outputs">
+          {{output}}
+        </li>
+      </ol>
+    </div>
+    <div style="grid-column: 2; grid-row: 2;">
+      <h3>rs2js events</h3>
+      <ol>
+        <li v-for="input in inputs">
+          {{input}}
+        </li>
+      </ol>
+    </div>
+  </div>
+</template>
+----
+
+Since the `HelloWorld` component is now calling an async function in setup, the `<HelloWorld>` component must now be placed in a https://vuejs.org/guide/built-ins/suspense.html[`<Suspense>`] component.
+Modify `src/App.vue` as follows
+
+[source,diff]
+----
+-  <HelloWorld/>
++  <Suspense>
++    <HelloWorld/>
++  </Suspense>
+----
 
 == Bidirectional Communication between the Main Thread and an Async Process
 
