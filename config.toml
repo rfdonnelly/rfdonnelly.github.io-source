@@ -27,6 +27,7 @@ pygmentsStyle = "friendly"
       source-highlighter = "pygments"
       pygments-css = "style"
       pygments-style = "friendly"
+      icons = "font"
 
 [security]
   enableInlineShortcodes = false
