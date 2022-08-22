@@ -24,6 +24,7 @@ pygmentsStyle = "friendly"
     sectionNumbers = true
     [markup.asciidocExt.attributes]
       # Asciidoc syntax highlighting
+      toc = true
       source-highlighter = "pygments"
       pygments-css = "style"
       pygments-style = "friendly"
