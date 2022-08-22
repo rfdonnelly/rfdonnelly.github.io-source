@@ -1,7 +1,6 @@
 ---
 title: "Tauri + Async Rust Process"
 date: 2022-08-17T00:43:11Z
-draft: true
 ---
 
 The complete source code for this post is available at https://github.com/rfdonnelly/tauri-async-example.
