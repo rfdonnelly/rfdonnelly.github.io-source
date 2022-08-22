@@ -29,6 +29,8 @@ pygmentsStyle = "friendly"
       pygments-css = "style"
       pygments-style = "friendly"
       icons = "font"
+      idprefix = ""
+      idseparator = "-"
 
 [security]
   enableInlineShortcodes = false
