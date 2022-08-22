@@ -65,7 +65,7 @@ And make the following entries/selections
 ? Which vite template would you like to use? *vue*
 ----
 
-Then run build and run the application
+Then build and run the application
 
 [source,sh]
 ----
@@ -166,9 +166,9 @@ The https://tauri.app/v1/guides/features/command[Tauri docs for Commands] and ht
 
 === Comands vs Events
 
-Events be sent in either direction while Commands can only go from JavaScript to Rust.
+Events can be sent in either direction while Commands can only be sent from JavaScript to Rust.
 
-For sending messages from JavaScript to Rust, I prefer Commands.
+I prefer Commands for sending messages from JavaScript to Rust.
 Commands automate a lot of the boiler plate like message deserialization and state management.
 So while we could use Events for everything, Commands are more ergonomic.
 
@@ -249,10 +249,10 @@ await listen('rs2js', (event) => { // <4>
 <4> Setup a listener for the 'rs2js' event via the Tauri `listen` API
 <5> Add the 'rs2js' message to the `inputs` array to show the user what was received
 
-==== An Aside: `<Suspense>`
+==== An Aside: `The (lack of) <Suspense> is Killing Me`
 
-The `HelloWorld` component is now awaiting an async function in the `<script setup>`.
-When a Vue component includes a top-level `await` statement in `<script setup>`, the Vue component must now be placed in a https://vuejs.org/guide/built-ins/suspense.html[`<Suspense>`] component.
+The `HelloWorld` component is now awaiting an async function in `<script setup>`.
+When a Vue component includes a top-level `await` statement in `<script setup>`, the Vue component must be placed in a https://vuejs.org/guide/built-ins/suspense.html[`<Suspense>`] component.
 Modify `src/App.vue` as follows
 
 [source,diff]
