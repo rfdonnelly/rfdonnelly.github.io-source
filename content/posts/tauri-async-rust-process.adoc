@@ -251,9 +251,16 @@ await listen('rs2js', (event) => { // <4>
 
 ==== An Aside: `The (lack of) <Suspense> is Killing Me`
 
+If we run the application now, the `HelloWorld` world component is no longer rendered.
+If we open the JavaScript console, we find an error.
+
+."A component with async setup() must be nested in a <Suspense>"
+image::vue-suspense.png["A component with async setup() must be nested in a <Suspense>"]
+
 The `HelloWorld` component is now awaiting an async function in `<script setup>`.
 When a Vue component includes a top-level `await` statement in `<script setup>`, the Vue component must be placed in a https://vuejs.org/guide/built-ins/suspense.html[`<Suspense>`] component.
-Modify `src/App.vue` as follows
+
+To fix, modify `src/App.vue` as follows
 
 [source,diff]
 ----
