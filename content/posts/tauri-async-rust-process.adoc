@@ -5,6 +5,8 @@ tags:
 - Software
 - Tauri
 - Rust
+- Vue
+- JavaScript
 ---
 
 The complete source code for this post is available at https://github.com/rfdonnelly/tauri-async-example.
@@ -272,7 +274,7 @@ To fix, modify `src/App.vue` as follows
 
 ==== Result
 
-Now when we run the app it looks like
+If we run the application again, it looks like
 
 .The Tauri application after the modifications to the `HelloWorld` component
 image::vue-mods.png["The Tauri application after the modifications to HelloWorld.vue"]
@@ -303,8 +305,8 @@ fn main() {
 
             let app_handle = app.handle();
             tauri::async_runtime::spawn(async move {
-                // An infinite loop that takes output from the async process
-                // and sends it to the webview via a Tauri Event
+                // A loop that takes output from the async process and sends it
+                // to the webview via a Tauri Event
                 loop {
                     if let Some(output) = async_proc_output_rx.recv().await {
                         rs2js(output, &app_handle);
@@ -326,8 +328,8 @@ fn rs2js<R: tauri::Runtime>(message: String, manager: &impl Manager<R>) {
         .unwrap();
 }
 
-// The Tauri command that gets called when Tauri JavaScript API `invoke`
-// command is called
+// The Tauri command that gets called when Tauri `invoke` JavaScript API is
+// called
 #[tauri::command]
 async fn js2rs(
     message: String,
@@ -436,7 +438,7 @@ async fn main() {
 
 === Creating the Channels
 
-The `tokio::mpsc` channels need to be created for both directions: inputs in to the async process and outputs out of the async process.
+The `tokio::mpsc` channels need to be created for both directions: inputs to the async process and outputs from the async process.
 
 [source,rust]
 ----
@@ -500,8 +502,8 @@ digraph G {
 }
 ----
 
-Sending messages between the main thread to the async process requires more sophistication.
-This additional sophistication is dictated by the need for our command to have mutable access to the async process input channel.
+Sending messages from the main thread to the async process requires more sophistication.
+This additional sophistication is dictated by the need for our command to have mutable access to input channel for the async process.
 
 To review, the main thread receives a message from JavaScript via a Tauri Command.
 The Command then needs to forward the message to the async process via input channel for the async process.
@@ -513,7 +515,7 @@ We can use Tauri's state management system to pass the input channel to the Comm
 The Tauri Command guide covers https://tauri.app/v1/guides/features/command#accessing-managed-state[state management] but it is https://github.com/tauri-apps/tauri/issues/4993[missing a key piece].
 Mutability.
 
-We need mutable access to the input channel but Tauri managed state is not directly mutable and what good is state if you can mutate it?
+We need mutable access to the input channel but Tauri managed state is immutable and what good is state if you can mutate it?
 How do we get mutable access to the input channel via immutable state?
 
 The answer is https://doc.rust-lang.org/reference/interior-mutability.html[interior mutability] and "the most basic type for interior mutability that supports concurrency is ``Mutex<T>``"footnote:[From link:https://www.ralfj.de/projects/rust-101/part15.html[Rust-101, Part 15: Mutex, Interior Mutability (cont.), RwLock, Sync]].
@@ -616,15 +618,25 @@ fn main() {
 
 == Result
 
-The following demo shows three messages "a", "b", and "c" send from the webview to the async Rust process and back.
+The following demo shows three messages "a", "b", and "c" sent from the webview to the async Rust process and back.
 
-Before a message is sent, it is reported in the "js2rs events" portion of the page.
-The message is then sent to the main thread in Rust.
-When the message is received by the main thread, it is reported in the terminal.
-The message is then sent to the async process and then back out of the async process to the main thread.
-When the message is received by the main thread, it is against reported in the terminal before sending to the webview.
-The message is sent to the webview.
-When the message is received by the webview, it is added to the "rs2js events" portion of the page.
+. When the "Send to Rust" button is clicked, the frontend
+.. reports the message in the "js2rs events" portion of the page,
+.. and sends the message to the main thread.
+. The main thread
+.. receives the message,
+.. reports the message in the terminal,
+.. and sends the message to the async process.
+. The async process,
+.. receives the message
+.. and sends the message back to the main thread.
+. The main thread,
+.. receives the message,
+.. reports the message in the terminal,
+.. and sends the message to the frontend.
+. The frontend,
+.. receives the message,
+.. and reports the message in the "rs2js events" portion of th page.
 
 .Demo of bidirectional communication between the webview and an async Rust process
 video::https://user-images.githubusercontent.com/28975/185815131-0c45ba14-4588-4722-806c-8dcf5b1bb67e.mp4[width=480]
