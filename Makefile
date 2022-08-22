@@ -25,7 +25,7 @@ publish:
 	    -v $(PWD):/src \
 	    -v $(PWD)/public:/target \
 	    -u $(shell id -u):$(shell id -g) \
-	    hugo -v \
+	    hugo -v
 	cd public \
 	    && git add . \
 	    && git commit -m "Publish $(date)" \
