@@ -249,7 +249,7 @@ await listen('rs2js', (event) => { // <4>
 <4> Setup a listener for the 'rs2js' event via the Tauri `listen` API
 <5> Add the 'rs2js' message to the `inputs` array to show the user what was received
 
-==== An Aside: `The (lack of) <Suspense> is Killing Me`
+==== An Aside: The (lack of) `<Suspense>` is Killing Me
 
 If we run the application now, the `HelloWorld` world component is no longer rendered.
 If we open the JavaScript console, we find an error.
