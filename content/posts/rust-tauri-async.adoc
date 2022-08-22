@@ -92,8 +92,8 @@ digraph G {
         ap [label="Async\nProcess\n(Rust)", shape=square, style=filled, fillcolor=lightblue]
 
         wv -> mt [constraint=false]
-        mt -> ap [constraint=false, label=mpsc]
-        ap -> mt [label=mpsc]
+        mt -> ap [constraint=false]
+        ap -> mt
         mt -> wv
      }
 }
@@ -240,15 +240,16 @@ await listen('rs2js', (event) => { // <4>
   </div>
 </template>
 ----
-<1> Clicking this button calls `sendOutput()`
+<1> Clicking the button calls `sendOutput()`
 <2> Add the 'js2rs' message to the outputs array to show the user what was sent
 <3> Send the 'js2rs' message to Rust via the Tauri `invoke` API
-<4> Setup a listener for the 'rs2js' event
+<4> Setup a listener for the 'rs2js' event via the Tauri `listen` API
 <5> Add the 'rs2js' message to the `inputs` array to show the user what was received
 
-==== An Aside
+==== An Aside: `<Suspense>`
 
-Since the `HelloWorld` component is now calling an async function in the setup script, the `<HelloWorld>` component must now be placed in a https://vuejs.org/guide/built-ins/suspense.html[`<Suspense>`] component.
+The `HelloWorld` component is now awaiting an async function in the `<script setup>`.
+When a Vue component includes a top-level `await` statement in `<script setup>`, the Vue component must now be placed in a https://vuejs.org/guide/built-ins/suspense.html[`<Suspense>`] component.
 Modify `src/App.vue` as follows
 
 [source,diff]
@@ -317,40 +318,51 @@ fn rs2js<R: tauri::Runtime>(message: String, manager: &impl Manager<R>) {
 
 // The Tauri command that gets called when Tauri JavaScript API `invoke`
 // command is called
-//
-// Known limitation: stateful async commands must return a Result
-// * https://github.com/tauri-apps/tauri/issues/2533
-// * https://github.com/tauri-apps/tauri/discussions/4317#discussioncomment-2926385
 #[tauri::command]
 async fn js2rs(
     message: String,
-    state: tauri::State<'_, AsyncProcInputTx>
-) -> Result<(), String> {
-    let input = message;
-    println!("rs: js2rs: {}", input);
+    state: tauri::State<'_, AsyncProcInputTx>,
+) -> Result<(), String> { // <1>
+    info!(?message, "js2rs");
     // ...
 }
-
-// ...
 ----
+<1> Stateful async Tauri Commands must return a `Result` (see https://github.com/tauri-apps/tauri/issues/2533[tauri-apps/tauri#2533]).
 
 == Bidirectional Communication between the Main Thread and the Async Process
 
-Passing messages between Rust and JavaScript may be straightforward but doing so between the Tauri main thread and an async process was not.
-Mostly because I couldn't find any examples.
+[graphviz]
+----
+digraph G {
+    rankdir=RL
 
-I'm pretty happy with the final implementation.
+    subgraph cluster_tauri {
+        label="Tauri\nApplication"
 
-The inputs and outputs of the async process implemented as `tokio::mpsc` (Multi-Producer Single-Consumer).
+        wv [label="Webview\n(JavaScript)", shape=square]
+        mt [label="Main Thread\n(Rust)", shape=square, style=filled, fillcolor=lightblue]
+        ap [label="Async\nProcess\n(Rust)", shape=square, style=filled, fillcolor=lightblue]
+
+        wv -> mt [constraint=false]
+        mt -> ap [constraint=false, label=mpsc]
+        ap -> mt [label=mpsc]
+        mt -> wv
+     }
+}
+----
+
+Passing messages between Rust and JavaScript may be straightforward but doing so between the Tauri main thread and an async process is a little more involved.
+
+The inputs and outputs of the async process are implemented as https://docs.rs/tokio/latest/tokio/sync/mpsc/index.html[`tokio::mpsc`] (Multi-Producer, Single-Consumer) channels.
 We only have a single producer but there isn't a more specific channel primitive for single-producer, single-consumer.
 
-=== Who Owns the Async Runtime?
+=== An Aside: Who Owns the Async Runtime?
 
 By default, Tauri owns and initializes the Tokio runtime.
-Because of this, you don't need an async main and a `#[tokio::main]` annotation.
+Because of this, you don't need an async `main` and a `#[tokio::main]` annotation.
 
 For additional flexibility, Tauri allows us to own and initialize the Tokio runtime ourselves.
-We can do this by adding the `#[tokio::main]` annotation, adding `async` to main, and then telling Tauri to use our Tokio runtime.
+We can do this by adding the `#[tokio::main]` annotation, adding `async` to `main`, and then telling Tauri to use our Tokio runtime.
 
 [source,rust]
 ----
@@ -382,10 +394,11 @@ fn main() {
 
             Ok(())
         }
-        .run(...)
         // ...
 }
 ----
+
+This is the method we're going to use because it is slightly simpler.
 
 ==== Outside Tauri
 
@@ -407,20 +420,19 @@ async fn main() {
     });
 
     tauri::Builder::default()
-        .run(...)
         // ...
 }
 ----
 
 === Creating the Channels
 
-Channels need to be created for both directions: inputs in to the async process and outputs out of the async process.
-They should be created with the least scope possible.
-To determine this, we need to figure out where we will be using them.
+The `tokio::mpsc` channels need to be created for both directions: inputs in to the async process and outputs out of the async process.
 
 [source,rust]
 ----
 fn main() {
+    // ...
+
     let (async_process_input_tx, async_process_input_rx) = mpsc::channel(1);
     let (async_process_output_tx, async_process_output_rx) = mpsc::channel(1);
 
@@ -441,6 +453,7 @@ fn main() {
     let (async_process_output_tx, async_process_output_rx) = mpsc::channel(1);
 
     tauri::Builder::default()
+        // ...
         .setup(|app| {
             tokio::spawn(async move {
                 async_process(
@@ -451,25 +464,70 @@ fn main() {
 
             Ok(())
         }
-        .run(...)
         // ...
 }
 ----
 
 === Main Thread to Async Process
 
+[graphviz]
+----
+digraph G {
+    rankdir=RL
+
+    subgraph cluster_tauri {
+        label="Tauri\nApplication"
+
+        wv [label="Webview\n(JavaScript)", shape=square]
+        mt [label="Main Thread\n(Rust)", shape=square, style=filled, fillcolor=lightblue]
+        ap [label="Async\nProcess\n(Rust)", shape=square, style=filled, fillcolor=lightblue]
+
+        wv -> mt [constraint=false]
+        mt -> ap [constraint=false, label=mpsc, color="red:black:red"]
+        ap -> mt [label=mpsc]
+        mt -> wv
+     }
+}
+----
+
+Sending messages between the main thread to the async process requires more sophistication.
+This additional sophistication is dictated by the need for our command to have mutable access to the async process input channel.
+
+To review, the main thread receives a message from JavaScript via a Tauri Command.
+The Command then needs to forward the message to the async process via input channel for the async process.
+The Command needs access to the channel.
+So how do we get give the Command access to the input channel?
+
+The answer is `tauri::State<T>`.
+We can use Tauri's state management system to pass the input channel to the Command.
+The Tauri Command guide covers https://tauri.app/v1/guides/features/command#accessing-managed-state[state management] but it is https://github.com/tauri-apps/tauri/issues/4993[missing a key piece].
+Mutability.
+
+We need mutable access to the input channel but Tauri managed state is not directly mutable and what good is state if you can mutate it?
+How do we get mutable access to the input channel via immutable state?
+
+The answer is https://doc.rust-lang.org/reference/interior-mutability.html[interior mutability] and "the most basic type for interior mutability that supports concurrency is ``Mutex<T>``"footnote:[From link:https://www.ralfj.de/projects/rust-101/part15.html[Rust-101, Part 15: Mutex, Interior Mutability (cont.), RwLock, Sync]].
+
+We can't use https://doc.rust-lang.org/std/sync/struct.Mutex.html[`std::sync::Mutex<T>`] because we need to `.await` a `send()` on the input channel and the guard for `std::sync::Mutex<T>` cannot be held across an `.await`.
+However, the guard for https://docs.rs/tokio/latest/tokio/sync/struct.Mutex.html[`tokio::sync::Mutex<T>`] can!
+
+First, we create a struct that wraps a mutex on the input channel.
+
 [source,rust]
 ----
-// ...
-
 struct AsyncProcInputTx {
     inner: Mutex<mpsc::Sender<String>>,
 }
+----
 
+This wrapper struct simplifies the type signature.
+Instead of having to write `Mutex<mpsc::Sender<String>>` everywhere, we only have to write `AsyncProcInputTx`.
+
+Then, we put our input channel into a mutex, put the mutex into our wrapper struct, and hand it off to Tauri to manage via `tauri::Builder::manage`.
+
+[source,rust]
+----
 fn main() {
-    // ...
-
-    let (async_proc_input_tx, async_proc_input_rx) = mpsc::channel(1);
     // ...
 
     tauri::Builder::default()
@@ -478,7 +536,12 @@ fn main() {
         })
         // ...
 }
+----
 
+Finally, we can access this immutable state in our command, take a lock on the Mutex to get mutable access to the input channel, put the message in the channel, and implicitly unlock the Mutex when the guard goes out of scope at the end of the function.
+
+[source,rust]
+----
 #[tauri::command]
 async fn js2rs(message: String, state: tauri::State<'_, AsyncProcInputTx>) -> Result<(), String> {
     info!(?message, "js2rs");
@@ -490,12 +553,31 @@ async fn js2rs(message: String, state: tauri::State<'_, AsyncProcInputTx>) -> Re
 }
 ----
 
-=== Notes on Interior Mutability
-
-* https://github.com/tauri-apps/tauri/discussions/3911#discussioncomment-2585191
-* https://github.com/tauri-apps/tauri/discussions/1336#discussioncomment-1936686
-
 === Async Process to Main Thread
+
+[graphviz]
+----
+digraph G {
+    rankdir=RL
+
+    subgraph cluster_tauri {
+        label="Tauri\nApplication"
+
+        wv [label="Webview\n(JavaScript)", shape=square]
+        mt [label="Main Thread\n(Rust)", shape=square, style=filled, fillcolor=lightblue]
+        ap [label="Async\nProcess\n(Rust)", shape=square, style=filled, fillcolor=lightblue]
+
+        wv -> mt [constraint=false]
+        mt -> ap [constraint=false, label=mpsc]
+        ap -> mt [label=mpsc, color="red:black:red"]
+        mt -> wv
+     }
+}
+----
+
+In comparison, sending messages from the async process to the main thread is trivial.
+
+We spawn an async process that pulls messages out of the output channel and forwards them to our `rs2js` function.
 
 [source,rust]
 ----
@@ -526,18 +608,18 @@ fn main() {
 
 The following demo shows three messages "a", "b", and "c" send from the webview to the async Rust process and back.
 
-Before a message is sent, it is reported in the "js2rs" portion of the page.
+Before a message is sent, it is reported in the "js2rs events" portion of the page.
 The message is then sent to the main thread in Rust.
 When the message is received by the main thread, it is reported in the terminal.
 The message is then sent to the async process and then back out of the async process to the main thread.
 When the message is received by the main thread, it is against reported in the terminal before sending to the webview.
 The message is sent to the webview.
-When the message is received by the webview, it is added to the "rs2js" portion of the page.
+When the message is received by the webview, it is added to the "rs2js events" portion of the page.
 
 .Demo of bidirectional communication between the webview and an async Rust process
 video::https://user-images.githubusercontent.com/28975/185815131-0c45ba14-4588-4722-806c-8dcf5b1bb67e.mp4[width=480]
 
-The complete Rust code in `src-tauri/src/main.rs`
+Here is the complete Rust code in `src-tauri/src/main.rs`
 
 [source,rust]
 ----
