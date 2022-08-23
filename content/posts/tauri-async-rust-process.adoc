@@ -166,7 +166,7 @@ digraph G {
 Tauri provides two mechanism for communicating between Rust and JavaScript: Events and Commands.
 The https://tauri.app/v1/guides/features/command[Tauri docs for Commands] and https://tauri.app/v1/guides/features/events[Events] do a good job of covering these.
 
-=== Comands vs Events
+=== Commands vs Events
 
 Events can be sent in either direction while Commands can only be sent from JavaScript to Rust.
 
