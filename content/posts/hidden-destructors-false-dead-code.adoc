@@ -1,0 +1,89 @@
+---
+title: "Hidden Destructors and False Dead Code in Rust"
+date: 2022-09-07T15:31:22Z
+draft: true
+tags:
+- Software
+- Rust
+---
+
+:serial-ports: https://github.com/rfdonnelly/vsp-router[serial ports]
+
+While writing working with {serial ports} I stumbled upon a Rust lint that led me to a incorrect program.
+
+One of the great things about Rust is that the compiler guides you toward a working solution.
+TODO: reference third-party blog post about this.
+I can often hack something up and then iteratively `cargo check` my way to a correct program.
+The Rust compiler will find several issues and suggest a fix.
+It's not always perfect but it is almost always a step in the right direction.
+
+However, in this case, the Rust compiler sent me in the exact opposite of correct direction.
+
+== My Problem
+
+:footnote-terms: I'm using alternative terms as used by the AMBA specification instead of the archaic terms.
+
+I created a psuedo-terminal pair.
+This returns a Manager and a Subordinate.{footnote-terms}
+I don't need the Subordinate end since it will be used by an external application so I let it go out of scope.
+
+This caused a problem.
+When I try to read from the Manager end, I got an IO error.
+TODO: Include copy and paste of IO error.
+
+After some digging, I found that buried deep inside the Subordinate object was an object that contained an object that implemented Drop.
+And this Drop implementation closed the file descriptor for the Subordinate.
+This effectively closes the channel and causes reads on the Manager to fail.
+
+:std-mem-forget: https://doc.rust-lang.org/std/mem/fn.forget.html[`std::mem::forget()`].
+:footnote-termination: footnote[See https://pubs.opengroup.org/onlinepubs/9699919799/functions/_Exit.html#tag_16_01_03_01[Consequences of Process Termination]]
+Initially, I worked around this by passing the Subordinate to {std-mem-forget} which prevents the destructor from being run.
+Now, the file descriptor doesn't get closed explicitly but this is not a big deal at least not yet since the OS will automatically close these for us on process termination.{footnote-termination}
+This workaround made the IO errors go away.
+I could now read and write from the Mangers.
+
+However, `std::mem::forget` is not a long term solution.
+To do this right, I refactored the code to keep the Subordinate around until I no longer needed it.
+This too kept the IO errors away.
+But now the Rust compiler was telling me I had dead code.
+TODO: Include warning message
+
+Rust suggests I remove the Subordinate.
+However, when I do that, the Subordinate goes out of scope, the Drop impl is run, the file descriptor gets closed, and now I can no longer perform IO on the Manager.
+
+== Resource Acquisition Is Initialization (RAII)
+
+:footnote-constructors: footnote:[See https://rust-unofficial.github.io/patterns/idioms/ctor.html[Rust Design Patterns: Constructors]].
+:drop-trait: https://doc.rust-lang.org/std/ops/trait.Drop.html[Drop trait]
+
+RAII binds the life cycle of a resource like an open file to the lifetime of an object.
+When the object is created, the resource is acquired (e.g. the file is opened).
+When the object is destroyed, the resource is released (e.g. the file is closed).
+
+RAII is implemented via a constructor and a destructor or code that gets run when an object is created and destroyed respectively.
+
+Rust does not have constructors as a language construct.
+Instead, convention is to use an associated `new` function.{footnote-constructors}
+
+Rust destructors are implemented via the {drop-trait}.
+
+== The Problem with Drop
+
+This isn't really a problem with Rust and Drop specifically.
+It is more of a problem with destructors.
+
+The problem with destructors is that they are obscured.
+
+Destructors run code indirectly.
+This is a good and bad thing.
+It is good because you don't need to remember to release the resource.
+
+== References
+
+https://github.com/rust-lang/rust/issues/21775[rust-lang/rust#21775]::
+dead_code lint shouldn't warn about unused fields that implement Drop
+
+And the corresponding pull request
+
+https://github.com/rust-lang/rust/pull/29439[rust-lang/rust#29439]::
+Adjust dead code lint to account for fields that implement Drop
