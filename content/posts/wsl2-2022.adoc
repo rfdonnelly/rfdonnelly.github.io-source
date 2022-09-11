@@ -1,0 +1,33 @@
+---
+title: "Using WSL2 in 2022"
+date: 2022-09-11
+tags:
+- Software
+- Docker
+- WSL2
+- Windows Terminal
+- SSH
+draft: true
+---
+
+This is an overhaul of my original post on WSL 2.
+
+== Windows Terminal Settings
+
+* Copy on select: Settings>Interaction>Automatically copy selection to clipboard
+* Paste on shift+insert: This is default now
+* Double click to select paths and URLs
+* Cursor shape: emptyBox
+
+== 1Password SSH Agent Forwarding
+
+== 1Password Git Commit SSH Key Signing
+
+== X11 using runx and vcxsrv
+
+. Install https://sourceforge.net/projects/vcxsrv[VcXsrc]
+. Install https://github.com/mviereck/runx[runx]
+
+== VPN
+
+. Install https://github.com/sakai135/wsl-vpnkit[wsl-vpnkit]
