@@ -27,7 +27,7 @@ However, this does cause unnecessary diffs to be created when different editors 
 For example, when saving file A, VS Code does not terminate the file with a newline.
 If you then simply open and save this file without making any other changes using a POSIX-compliant editor like Vim, a final newline will be appended.
 
-Now we Git shows that there is a change.
+Now Git shows that there is a change.
 This is silly.
 
 == The Solution
