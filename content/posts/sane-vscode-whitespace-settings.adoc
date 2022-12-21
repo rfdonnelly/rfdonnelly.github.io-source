@@ -1,0 +1,74 @@
+---
+title: "Sane VS Code Whitespace Settings"
+date: 2022-12-21T21:41:13Z
+---
+
+The default VS Code settings for the handling of the final newline character violates the POSIX standard.
+
+VS Code does not end files with a newline character.
+The POSIX standard requires that files end with a newline character.
+
+More specifically, the POSIX standard defines a https://pubs.opengroup.org/onlinepubs/9699919799/basedefs/V1_chap03.html#tag_03_206[_line_] as
+
+[quote]
+A sequence of zero or more non-<newline> characters plus a terminating <newline> character.
+
+The POSIX standard also defines an https://pubs.opengroup.org/onlinepubs/9699919799/basedefs/V1_chap03.html#tag_03_195[_incomplete line_] as
+
+[quote]
+A sequence of one or more non-<newline> characters at the end of the file.
+
+== The Problem
+
+I've heard people say that this non-POSIX compliant behavior could cause problems with software that expects all lines to end with a newline character.
+I haven't experienced this myself.
+
+However, this does cause unnecessary diffs to be created when different editors are used to edit the same file.
+For example, when saving file A, VS Code does not terminate the file with a newline.
+If you then simply open and save this file without making any other changes using a POSIX-compliant editor like Vim, a final newline will be appended.
+
+Now we Git shows that there is a change.
+This is silly.
+
+== The Solution
+
+Add these settings to the `.vscode/settings.json` file in all of your repositories.
+
+The `files.insertFinalNewline` setting is the most critical.
+The others are nice to haves.
+
+[source,javascript]
+.`.vscode/settings.json`
+----
+{
+  // Adhere to the POSIX standard on file save
+  //
+  // The POSIX standard defines a line as "A sequence of zero or more non-
+  // <newline> characters plus a terminating <newline> character."
+  //
+  // By default VS Code does not append a final newline character and by the
+  // POSIX standard this final "line" is not actually a line.  This default
+  // non-POSIX compliant behavior causes diff battles with other editors that
+  // adhere to the POSIX standard.  With out this setting, VS Code will remove
+  // the final newline character while a POSIX-compliant editor like Vim will
+  // add back the final newline character.  This adds unnecessary noise to
+  // diffs.
+  "files.insertFinalNewline": true,
+
+  // Adhere to the POSIX standard on file render
+  //
+  // When "files.insertFinalNewline" is enabled and "editor.renderFinalNewline"
+  // is not enabled, VS Code renders a line after the final newline character.
+  // Per the POSIX standard, this additional rendered line is not actually a
+  // line because it doesn't terminate with a newline character.  Fix this by
+  // disabling this setting.
+  "editor.renderFinalNewline": false,
+
+  // Trim all newlines after final newline.
+  "files.trimFinalNewlines": true,
+
+  // Trim all non-newline whitespace characters between final non-whitespace
+  // character and newline character
+  "files.trimTrailingWhitespace": true,
+}
+----
