@@ -1,0 +1,47 @@
+---
+title: "Sane Typescript Settings"
+date: 2022-12-21T21:41:27Z
+draft: true
+---
+
+Strict null checks (`strictNullChecks`) is not enough to prevent nulls.
+You also need `noUncheckedIndexedAccesss`.
+
+Coming from Rust, I was excited to try TypeScript on a web project with the assumption that it had the ability to prevent nulls.
+
+I enabled `strict` mode which enables `strictNullChecks` among other things.
+Imagine my disappointment when I got the following error in production:
+
+[listing]
+----
+TypeError: Cannot read properties of undefined
+----
+
+I thought TypeScript was meant to prevent this type of error at compiel time!
+
+[source,typescript]
+----
+interface MyObject {
+    [key: string]: MyValue;
+}
+
+interface MyValue {
+    value: string;
+}
+
+const obj = JSON.parse('{"valid_key": { "value": "valid_value" } }') as MyObject;
+
+const valid_value = obj["valid_key"];
+const invalid_value = obj["invalid_key"];
+
+console.log(valid_value.value)
+console.log(invalid_value.value)
+----
+
+Without `noUncheckedIndexedAccesss`, this code https://www.typescriptlang.org/play?noUncheckedIndexedAccess=false#code/JYOwLgpgTgZghgYwgAgLIE8DyAjAVhBMZAbwChkLkBtAawnQC5kBnMKUAcwF0mMA1OABsArhADcpAL6lSoSLEQp+Q0SXKUAbiohNW7EBwnTSCAPYhWyU3mQBeZACkAypgByAOgAOcKMwgAKAHJiACItQWAAEwB9OnQQpmJkMO0E5PCo6PDREORJPMCASmQ4ZjQsPAIwCRNzSwyY7JR7a1wqFIiYuJCuCTMLIlAGrO07Kzx2oaFM7t6ZfuZTQQh3QVMOf2Gm9ybC2osllbWNqc6RkRXdoA[compiles but fails at runtime].
+With `noUncheckedIndexedAccesss`, this code https://www.typescriptlang.org/play?noUncheckedIndexedAccess=true#code/JYOwLgpgTgZghgYwgAgLIE8DyAjAVhBMZAbwChkLkBtAawnQC5kBnMKUAcwF0mMA1OABsArhADcpAL6lSoSLEQp+Q0SXKUAbiohNW7EBwnTSCAPYhWyU3mQBeZACkAypgByAOgAOcKMwgAKAHJiACItQWAAEwB9OnQQpmJkMO0E5PCo6PDREORJPMCASmQ4ZjQsPAIwCRNzSwyY7JR7a1wqFIiYuJCuCTMLIlAGrO07Kzx2oaFM7t6ZfuZTQQh3QVMOf2Gm9ybC2osllbWNqc6RkRXdoA[fails to compile with].
+
+[listing]
+----
+'valid_value' is possibly 'undefined'.
+----
