@@ -114,7 +114,7 @@ Add the `tree-sitter` crate to the `dependencies` section of `Cargo.toml`:
 
 ```toml
 [dependencies]
-tree-sitter = "0.3"
+tree-sitter = "0.20.9"
 ```
 
 Edit the contents of `src/main.rs` to be the following:
