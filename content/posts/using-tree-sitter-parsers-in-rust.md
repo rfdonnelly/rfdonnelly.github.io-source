@@ -7,6 +7,7 @@ tags:
 - Tree-sitter
 ---
 
+*Update: 2022-12-26: Fixed unwrap() on Err by updating to latest tree-sitter*
 *Update: 2019-08-10: Fixed rerun directive in `build.rs`*
 
 [Tree-sitter] is a parser generator tool and parsing library.
