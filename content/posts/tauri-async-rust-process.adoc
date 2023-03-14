@@ -366,7 +366,8 @@ digraph G {
 Passing messages between Rust and JavaScript may be straightforward but doing so between the Tauri main thread and an async process is a little more involved.
 
 The inputs and outputs of the async process are implemented as https://docs.rs/tokio/latest/tokio/sync/mpsc/index.html[`tokio::mpsc`] (Multi-Producer, Single-Consumer) channels.
-We only have a single producer but there isn't a more specific channel primitive for single-producer, single-consumer.
+We only have a single producer but there isn't a more specific persistent channel primitive for single-producer, single-consumer.
+There is `tokio::oneshot` which is single-producer, single-consumer but as the name implies, it can only send a single value ever.
 
 === An Aside: Who Owns the Async Runtime?
 
