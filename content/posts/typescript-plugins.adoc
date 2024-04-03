@@ -1,0 +1,68 @@
+---
+title: "Plugins for Client Side Vite+TypeScript Web Applications"
+date: 2024-04-01T23:51:01Z
+draft: true
+tags:
+- Vite
+- TypeScript
+- Plugins
+- dynamic-import
+---
+
+:dynamic-imports: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Operators/import[dynamic imports]
+
+= Plug-ins for Client Side Vite+TypeScript Web Applications
+
+This post decribes how to add a plugin system to a Vite+TypeScript-based web application to allow others to add functionality to your application.
+
+== Dynamic Imports
+
+The key mechanism that enables this is {dynamic-imports}.
+
+Using Vite+TypeScript present a few challenges to use dynamic imports in a truly dynamic way.
+
+Complications:
+
+* Vite resolves dynamic imports at compile time (by default)
+* How to serve a dynamic import for both dev and build
+
+== Challenge 1: TypeScript Compiler
+
+If the import path is a constant (e.g., `import("constant/path/to/file.js")`) the TypeScript compiler will attempt to analyze it.
+
+If the file doesn't exist at compile time, the TypeScript compiler will throw an error.
+
+Simply making the path a variable will defeat this analysis.
+
+For example,
+
+[source,ts]
+----
+const path = "mymodule.js";
+await import(path);
+----
+
+== Challenge 2: Vite Compile Time Resolution of Dynamic Imports
+
+Similar for Vite, by default, Vite attempts to resolve dynamic imports at compile time.
+In other words, the imported file must exist at compile time.
+
+Vite's analysis of the dynamic import can be disabled with the poorly documented `@vite-ignore` pragma.
+
+[source,ts]
+----
+const path = "mymodule.js";
+await import(/* @vite-ignore */ path);
+----
+
+== Challenge 3: Make it Work in Dev and Build
+
+To test a plugin in both dev and build, simple place it into `src/public`.
+
+== Challenge 4: Type Check the Plugin Interface
+
+Create a Vite+TypeScript library that defines the interface that plugins must implement.
+
+== Challenge 5: Type Check the Plugin Constructor
+
+However, constructors cannot be easily type checked.
