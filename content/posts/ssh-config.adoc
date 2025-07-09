@@ -1,0 +1,59 @@
+---
+title: "SSH Configuration Tips"
+date: 2025-07-09T04:56:23Z
+draft: true
+---
+
+== My Setup
+
+I use jump hosts.
+I have one key per user.
+All keys are kept in 1Password and provided via the 1Password SSH Agent.
+
+== Dyanmic ProxyJump
+
+Sometimes I am on an external network and need to access an internal network via a jump host.
+I can use `ProxyJump` do configure this.
+However, sometimes I am on the internal network and therefore don't need to use the jump host.
+I can comment out the `ProxyJump` option but it would be a lot nicer if it were seamless.
+
+Enter `ProxyCommand`.
+With `ProxyCommmand` we can implement a dynamic `ProxyJump`.
+
+The following configuration determines whether or not to use the jump host depending on name resolution.
+
+[source]
+----
+ProxyCommand sh -c "resolvectl query %h 2>/dev/null && nc %h %p || resolvectl query jump-host && ssh -W %h:%p jump-host "
+----
+
+. If the hostname resolves
+.. SSH directly to the host
+. Else if the jump host resolves
+.. SSH to the host through the jump host
+. Else
+.. Fail
+
+I'm using `resolvectl` but you could use any resolver (e.g., `dig`, `nslookup`, etc.).
+
+== Guide SSH Agent Key Selection
+
+By default, SSH bruteforce attempts to authenticate with each key provided by the SSH agent in order until one of them works OR until the server rejects the session due to too many authentication attempts.
+
+This is inefficient at best and plain broken at worst.
+
+We can solve this by telling SSH which key to prioritize by using the `IdentityFile` option.
+Unfortuneatly, this option does not accept inline public keys.
+But we can copy our public keys to identity files.
+
+Since I have one key per remote user, I create `~/.ssh/id_user1.pub`, `~/.ssh/id_user2.pub`, etc. with the content of the public key for each user.
+Then in my `~/.ssh/config` I have the following global option:
+
+[source]
+----
+IdentityFile ~/.ssh/id_%r
+----
+
+When I SSH into `user1@host`, SSH will select the agent provided key that matches `~/.ssh/id_user1.pub`.
+
+
